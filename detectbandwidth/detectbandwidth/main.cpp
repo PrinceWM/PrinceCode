@@ -119,6 +119,11 @@ int main(int argc, char **argv)
 	{//client
 		printf("set client mode\n");
 		client* clientptr = new client(&setting);
+		ret = clientptr->Connect();
+		if(ret != 0)
+		{
+			printf("client connect error \n");
+		}
 		clientptr->run();
 		delete clientptr;
 	}

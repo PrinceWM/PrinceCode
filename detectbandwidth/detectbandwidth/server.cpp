@@ -85,7 +85,7 @@ void server::UDPSingleServer( )
 	int clientaddlen = sizeof( iperf_sockaddr );
 
 	datagram* serverdgmbuff = (datagram*)serverbuff;
-	
+	float speed = 0.0;
 	int itemp = 0;
 
 	while ( sInterupted == 0) 
@@ -97,8 +97,8 @@ void server::UDPSingleServer( )
 			printf("recvfrom error \n");
 			return;
 		}
-		//printf("received data %d id =%d sec=%d usec=%d\n"
-		//	,rc,ntohl(serverdgmbuff->id),ntohl(serverdgmbuff->send_sec),ntohl(serverdgmbuff->send_usec));
+		printf("received data %d id =%d sec=%d usec=%d\n"
+			,rc,ntohl(serverdgmbuff->id),ntohl(serverdgmbuff->send_sec),ntohl(serverdgmbuff->send_usec));
 
 		// Handle connection for UDP sockets.
 		
@@ -122,22 +122,28 @@ void server::UDPSingleServer( )
 		else 
 		{
 			printf("datagramID = %d \n",datagramID);
+			gettimeofday( &(packetTime), NULL );
 			// read the datagram ID and sentTime out of the buffer 
 			packetID = -datagramID; 
 			if(recvlen >0)
 			{
 				msfeed = transfertime.delta_usec();
-				printf("speed = %f recvlen=%d msfeed=%ld\n",(((recvlen*8)/(1024*1024))/((double)msfeed/(1000*1000))),recvlen,msfeed);
+				speed = (((recvlen*8)/(1024*1024))/((float)msfeed/(1000*1000)));//Mbit/sec
+				printf("speed = %f recvlen=%d msfeed=%ld\n",speed,recvlen,msfeed);
 				recvlen = 0;
+
+				serverdgmbuff->id      = htonl( datagramID ); 
+				serverdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
+				serverdgmbuff->send_sec = htonl( packetTime.tv_usec ); 				
+				serverdgmbuff->speed = htonl((int)(speed*1000));
 			}
 			printf("end time %ld %ld\n",transfertime.getSecs(),transfertime.getUsecs());
 			recvlen = 0;
 
-			sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-			sendTime.tv_usec = ntohl( ((datagram*)serverbuff)->send_usec ); 
+			//sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
+			//sendTime.tv_usec = ntohl( ((datagram*)serverbuff)->send_usec ); 
 
-			packetLen = rc;
-			gettimeofday( &(packetTime), NULL );
+			//packetLen = rc;
 			//need check
 			rc = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
 			printf("send to final packet rc =%d \n",rc);

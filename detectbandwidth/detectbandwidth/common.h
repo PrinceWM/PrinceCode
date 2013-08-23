@@ -41,6 +41,7 @@ typedef struct datagram
 	signed   int id      ;
 	unsigned int send_sec  ;
 	unsigned int send_usec ;
+	int speed ;
 }datagram;
 
 

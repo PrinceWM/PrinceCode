@@ -1,7 +1,3 @@
-
-
-
-//#include "headers.h"
 #include "gettimeofday.h"
 //#include <WinDef.h>
 #include <winsock2.h>

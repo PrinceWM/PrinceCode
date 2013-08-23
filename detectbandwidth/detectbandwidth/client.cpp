@@ -3,6 +3,7 @@
 client::client( thread_Settings *inSettings ) 
 {
 	// initialize buffer
+	printf("float =%d",sizeof(float));
 	if(inSettings->mHost == NULL || inSettings->mPort == 0)
 	{
 		printf("client para error\n");
@@ -25,10 +26,11 @@ client::client( thread_Settings *inSettings )
 	mAmount = inSettings->mAmount;
 	isudp = 1;
 	clientsock = INVALID_SOCKET;
+	speed = 0;
 	memset( clientbuff,23,clientbufflen);
 
 	// connect
-	Connect( );
+	//Connect( );
 
 } // end Client
 
@@ -51,6 +53,41 @@ client::~client()
 	}
 } // end ~Client
 
+
+int client::Connect( ) 
+{
+	int rc;
+	// create an internet socket
+	int type = (( isudp )  ?  SOCK_DGRAM : SOCK_STREAM);
+
+	int domain = AF_INET;
+
+	clientsock = socket( domain, type, 0 );
+	if(clientsock == INVALID_SOCKET)
+	{
+		printf("creat client socket fail \n");
+		return -1;
+	}
+	if(clientWin> 0)
+	{
+		setsock_windowsize(clientsock,clientWin,false);
+	}
+
+	// connect socket
+	rc = connect( clientsock, (sockaddr*) &sockadd,sockaddlen);
+	if( rc != 0 )
+	{
+		printf("client connect error \n");
+		close(clientsock);
+		return -1;
+	}
+	return 0;
+} // end Connect
+
+
+
+
+
 const double kSecs_to_usecs = 1e6; 
 const int    kBytes_to_Bits = 8; 
 /* ------------------------------------------------------------------- 
@@ -68,16 +105,15 @@ void client::run( void )
 	int delay = 0; 
 	int adjust = 0; 
 	int packetID = 0;
-	int countsendtime = 0;
+	//int countsendtime = 0;
 	struct timeval packetTime;
-
+	int ret = -1;
 	//set transfer end time
 	mEndTime.setnow();
 	mEndTime.add( mAmount / 100.0 );
 
 	if ( isudp ) 
 	{
-
 		// compute delay for bandwidth restriction, constrained to [0,1] seconds 
 		//delay_target it means send clientbufflen byte need how long us
 		//((kSecs_to_usecs * kBytes_to_Bits) / udprate) this means send one byte need us 
@@ -115,23 +151,41 @@ void client::run( void )
 
 
 		// perform write 
-		currLen = write( clientsock, clientbuff, clientbufflen );
-		countsendtime++;
-		printf("write data to server %d ret =%d delay=%d,countsendtime=%d id=%d sec=%d usec=%d\n",
-			clientbufflen ,currLen,delay,countsendtime,packetID,packetTime.tv_sec,packetTime.tv_usec);
-#ifndef WIN32                                         
-		if ( currLen < 0 && errno != ENOBUFS ) {      
-#else                                                 
-		if ( currLen < 0 ) {                          
-#endif                                                
+		//gettimeofday( &packetTime, NULL );
+		//printf("before %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
 
+		currLen = write( clientsock, clientbuff, clientbufflen );
+		
+		if(currLen<=0)
+		{
+#ifdef WIN32_BANDTEST
+
+			printf("read error %d\n",WSAGetLastError());
+#else
+			printf("read error %d\n",errno);
+#endif
+
+		}
+		//gettimeofday( &packetTime, NULL );
+		//printf("end %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
+
+		//countsendtime++;
+		//printf("write data to server %d ret =%d delay=%d,countsendtime=%d id=%d sec=%d usec=%d\n",
+		//	clientbufflen ,currLen,delay,countsendtime,packetID,packetTime.tv_sec,packetTime.tv_usec);
+#ifndef WIN32_BANDTEST                                         
+		if ( currLen < 0 && errno != ENOBUFS )
+#else                                                 
+		if ( currLen < 0 )       
+#endif                                                
+		{
 			printf("write error\n");
 			break; 
 		}
 
 		// report packets 
-		packetLen = currLen;
-		
+	//	packetLen = currLen;
+	//	gettimeofday( &packetTime, NULL );
+	//	printf("before %d delay=%d \n",packetTime.tv_sec,delay);
 		if ( delay > 1000 ) 
 		{
 #ifdef WIN32_BANDTEST
@@ -140,12 +194,17 @@ void client::run( void )
                     usleep(delay); //us delay
 #endif
 		}
+//		gettimeofday( &packetTime, NULL );
+//		printf("end %d delay=%d \n",packetTime.tv_sec,delay);
+
+
 	} while ( ! (sInterupted  || (mEndTime.before( packetTime )))); 
 
 	// stop timing
 	gettimeofday( &packetTime, NULL );
 
-	if ( isudp ) {
+	if ( isudp ) 
+	{
 		// send a final terminating datagram 
 		// Don't count in the mTotalLen. The server counts this one, 
 		// but didn't count our first datagram, so we're even now. 
@@ -156,7 +215,11 @@ void client::run( void )
 		clientdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
 		clientdgmbuff->send_sec = htonl( packetTime.tv_usec ); 
 
-		write_UDP_FIN( ); 
+		ret = write_UDP_FIN( ); 
+		if(ret == 0)
+		{
+			storespeed(speed);
+		}
 	}
 } // end Run
 
@@ -167,7 +230,7 @@ void client::initiateserver()
 
 
 
-int setsock_windowsize( int inSock, int inTCPWin, int inSend ) 
+int client::setsock_windowsize( int inSock, int inTCPWin, int inSend ) 
 {
 	int rc;
 	int newTCPWin;
@@ -204,54 +267,43 @@ int setsock_windowsize( int inSock, int inTCPWin, int inSend )
 * which outgoing interface to use.
 * ------------------------------------------------------------------- */
 
-void client::Connect( ) 
+void client::storespeed(int speed)
 {
-	int rc;
-	// create an internet socket
-	int type = (( isudp )  ?  SOCK_DGRAM : SOCK_STREAM);
-
-	int domain = AF_INET;
-
-	clientsock = socket( domain, type, 0 );
-	if(clientsock == INVALID_SOCKET)
+#ifndef WIN32_BANDTEST
+	if(speed <= 0)
 	{
-		printf("creat client socket fail \n");
+		return;
 	}
-	if(clientWin> 0)
-	{
-		setsock_windowsize(clientsock,clientWin,false);
-	}
-
-	// connect socket
-	rc = connect( clientsock, (sockaddr*) &sockadd,sockaddlen);
-	if( rc != 0 )
-	{
-		printf("client connect error \n");
-	}
-} // end Connect
-
+	FILE* filefd = NULL;
+	char* filename = "/tmp/storespeed";
+	//ever time open file ,will drop old data
+	filefd = fopen(filename,"w");
+	fwrite((char*)(&speed),sizeof(speed),1,filefd);
+	fclose(filefd);
+	return;
+#endif
+}
 /* ------------------------------------------------------------------- 
 * Send a datagram on the socket. The datagram's contents should signify 
 * a FIN to the application. Keep re-transmitting until an 
 * acknowledgement datagram is received. 
 * ------------------------------------------------------------------- */ 
 
-void client::write_UDP_FIN( ) 
+int client::write_UDP_FIN( ) 
 {
 	int rc; 
 	fd_set readSet; 
 	struct timeval timeout; 
-	iperf_sockaddr tmpadd;
+	//iperf_sockaddr tmpadd;
 	int tmpaddlen = sizeof( iperf_sockaddr );
-
+	datagram* speeddatagram = NULL;
 	int count = 0; 
         // write data
-        write( clientsock, clientbuff, clientbufflen );
-
+    write( clientsock, clientbuff, clientbufflen );
+//	printf("write final data\n");
 	while ( count < 10 ) 
 	{
-                count++;
-#if 1
+        count++;
 		// wait until the socket is readable, or our timeout expires 
 		FD_ZERO( &readSet ); 
 		FD_SET( clientsock, &readSet ); 
@@ -262,6 +314,7 @@ void client::write_UDP_FIN( )
 		if( rc == SOCKET_ERROR)
 		{
 			printf("select error \n");
+			return -1;
 		}
 
 		if ( rc == 0 ) 
@@ -270,7 +323,6 @@ void client::write_UDP_FIN( )
 			continue; 
 		} 
 		else 
-#endif
 		{
 			if(FD_ISSET(clientsock,&readSet)>0)
 			{				
@@ -284,22 +336,26 @@ void client::write_UDP_FIN( )
 
 					printf("read error %d\n",WSAGetLastError());
 #else
-                                    printf("read error %d\n",errno);
+                    printf("read error %d\n",errno);
 #endif
+					return -1;
+				}			
 
-				}
-				if ( rc < 0 ) 
+				speeddatagram = (datagram*) clientbuff;
+				if(speeddatagram->id < 0)
 				{
-					break;
-				} 
+					speed = ntohl(speeddatagram->speed);
+					printf("client recv speed =%f \n",((float)speed)/1000);
+					return 0;
+				}
 			}
 			else
 			{
 				continue;
 			}
-			return; 
 		} 
 	} 
+	return -1;
 
 	//fprintf( stderr, warn_no_ack, mSettings->mSock, count ); 
 }// end write_UDP_FIN 
