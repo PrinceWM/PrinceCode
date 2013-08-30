@@ -42,6 +42,7 @@ typedef struct datagram
 	unsigned int send_sec  ;
 	unsigned int send_usec ;
 	int speed ;
+	int udpid;
 }datagram;
 
 
@@ -57,6 +58,7 @@ typedef struct thread_Settings {
 	int mMSS;                       // -M
 	int mTCPWin;                    // -w
 	int flags; 
+	bool isudp;
 	// enums (which should be special int's)
 	//ThreadMode mThreadMode;         // -s or -c
 	//ReportMode mReportMode;

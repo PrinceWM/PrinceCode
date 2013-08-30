@@ -3,7 +3,7 @@
 client::client( thread_Settings *inSettings ) 
 {
 	// initialize buffer
-	printf("float =%d",sizeof(float));
+	//printf("float =%d",sizeof(float));
 	if(inSettings->mHost == NULL || inSettings->mPort == 0)
 	{
 		printf("client para error\n");
@@ -24,7 +24,7 @@ client::client( thread_Settings *inSettings )
 	clientbuff = new char[ clientbufflen ];
 	clientWin = inSettings->mTCPWin;
 	mAmount = inSettings->mAmount;
-	isudp = 1;
+	isudp = inSettings->isudp;
 	clientsock = INVALID_SOCKET;
 	speed = 0;
 	memset( clientbuff,23,clientbufflen);
@@ -77,15 +77,17 @@ int client::Connect( )
 	rc = connect( clientsock, (sockaddr*) &sockadd,sockaddlen);
 	if( rc != 0 )
 	{
-		printf("client connect error \n");
+#ifdef WIN32_BANDTEST
+
+		printf("client connect error %d\n",WSAGetLastError());
+#else
+		printf("client connect error %d\n",errno);
+#endif
 		close(clientsock);
 		return -1;
 	}
 	return 0;
 } // end Connect
-
-
-
 
 
 const double kSecs_to_usecs = 1e6; 
@@ -96,7 +98,7 @@ const int    kBytes_to_Bits = 8;
 * Does not close the socket. 
 * ------------------------------------------------------------------- */ 
 
-void client::run( void ) 
+int client::run( void ) 
 {
 	datagram* clientdgmbuff = (datagram*) clientbuff; 
 	unsigned long currLen = 0; 
@@ -105,6 +107,7 @@ void client::run( void )
 	int delay = 0; 
 	int adjust = 0; 
 	int packetID = 0;
+	int udptransferid = -1;
 	//int countsendtime = 0;
 	struct timeval packetTime;
 	int ret = -1;
@@ -114,6 +117,12 @@ void client::run( void )
 
 	if ( isudp ) 
 	{
+		ret = writetransferrequest();
+		if(ret < 0)
+		{
+			return -1;
+		}
+		udptransferid = ret;
 		// compute delay for bandwidth restriction, constrained to [0,1] seconds 
 		//delay_target it means send clientbufflen byte need how long us
 		//((kSecs_to_usecs * kBytes_to_Bits) / udprate) this means send one byte need us 
@@ -129,14 +138,15 @@ void client::run( void )
 
 	do {
 		gettimeofday( &(packetTime), NULL );
-
+		clientdgmbuff->id      = htonl( packetID++ ); 
+		
+		//printf("packet id = %d \n",packetID);
 		if ( isudp ) 
 		{
-			// store datagram ID into buffer 
-			clientdgmbuff->id      = htonl( packetID++ ); 
+			// store datagram ID into buffer 			
 			clientdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
 			clientdgmbuff->send_usec = htonl( packetTime.tv_usec );
-
+			clientdgmbuff->udpid = htonl( udptransferid ); 
 			// delay between writes 
 			// make an adjustment for how long the last loop iteration took 
 			// TODO this doesn't work well in certain cases, like 2 parallel streams 
@@ -160,9 +170,9 @@ void client::run( void )
 		{
 #ifdef WIN32_BANDTEST
 
-			printf("read error %d\n",WSAGetLastError());
+			printf("write error %d\n",WSAGetLastError());
 #else
-			printf("read error %d\n",errno);
+			printf("wrtie error %d\n",errno);
 #endif
 
 		}
@@ -186,12 +196,12 @@ void client::run( void )
 	//	packetLen = currLen;
 	//	gettimeofday( &packetTime, NULL );
 	//	printf("before %d delay=%d \n",packetTime.tv_sec,delay);
-		if ( delay > 1000 ) 
+		if ( delay > 1000 && isudp ) 
 		{
 #ifdef WIN32_BANDTEST
 			Sleep((int)(delay/1000));	//ms delay 	
 #else
-                    usleep(delay); //us delay
+            usleep(delay); //us delay
 #endif
 		}
 //		gettimeofday( &packetTime, NULL );
@@ -202,8 +212,8 @@ void client::run( void )
 
 	// stop timing
 	gettimeofday( &packetTime, NULL );
-
-	if ( isudp ) 
+	printf("send final data\n");
+	//if ( isudp ) 
 	{
 		// send a final terminating datagram 
 		// Don't count in the mTotalLen. The server counts this one, 
@@ -214,13 +224,14 @@ void client::run( void )
 		clientdgmbuff->id      = htonl( -packetID  ); 
 		clientdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
 		clientdgmbuff->send_sec = htonl( packetTime.tv_usec ); 
-
+		clientdgmbuff->udpid = htonl( udptransferid ); 
 		ret = write_UDP_FIN( ); 
 		if(ret == 0)
 		{
 			storespeed(speed);
 		}
 	}
+	return 0;
 } // end Run
 
 void client::initiateserver() 
@@ -283,6 +294,75 @@ void client::storespeed(int speed)
 	return;
 #endif
 }
+
+int client::writetransferrequest()
+{
+	//char request[] = "request";
+	fd_set readSet; 
+	int id = 0;
+	struct timeval timeout; 
+	int rc = 0;
+	int count = 0;
+	memcpy(clientbuff,"request",strlen("request")+1);
+	write( clientsock, clientbuff, clientbufflen );
+	while ( count < 10 ) 
+	{
+		count++;
+		// wait until the socket is readable, or our timeout expires 
+		FD_ZERO( &readSet ); 
+		FD_SET( clientsock, &readSet ); 
+		timeout.tv_sec  = 0; 
+		timeout.tv_usec = 250000; // quarter second, 250 ms 
+
+		rc = select( clientsock+1, &readSet, NULL, NULL, &timeout ); 
+		if( rc == SOCKET_ERROR)
+		{
+			printf("select error \n");
+			return -1;
+		}
+
+		if ( rc == 0 ) 
+		{
+			// select timed out 
+			continue; 
+		} 
+		else 
+		{
+			if(FD_ISSET(clientsock,&readSet)>0)
+			{				
+				// socket ready to read 
+				rc = read( clientsock, clientbuff, clientbufflen ); 
+				if( rc < 0)
+				{
+#ifdef WIN32_BANDTEST
+
+					printf("read error %d\n",WSAGetLastError());
+#else
+					printf("read error %d\n",errno);
+#endif
+					return -1;
+				}			
+				
+				if(memcmp(clientbuff,"bye",strlen("bye")+1)==0)
+				{
+					return -1;
+				}
+				else
+				{
+					id = ntohl(((int*)(clientbuff))[0]);
+					return id;
+				}
+			}
+			else
+			{
+				continue;
+			}
+		} 
+	} 
+	return -1;
+}
+
+
 /* ------------------------------------------------------------------- 
 * Send a datagram on the socket. The datagram's contents should signify 
 * a FIN to the application. Keep re-transmitting until an 
@@ -293,6 +373,7 @@ int client::write_UDP_FIN( )
 {
 	int rc; 
 	fd_set readSet; 
+	int id = 0;
 	struct timeval timeout; 
 	//iperf_sockaddr tmpadd;
 	int tmpaddlen = sizeof( iperf_sockaddr );
@@ -327,7 +408,7 @@ int client::write_UDP_FIN( )
 			if(FD_ISSET(clientsock,&readSet)>0)
 			{				
 				// socket ready to read 
-				rc = read( clientsock, clientbuff, clientbufflen ); 
+				rc = read( clientsock, clientbuff, sizeof(datagram)/*clientbufflen*/ ); 
 				//rc = recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &tmpadd, &tmpaddlen );
 				printf("client rc = %d\n",rc);
 				if( rc < 0)
@@ -342,7 +423,9 @@ int client::write_UDP_FIN( )
 				}			
 
 				speeddatagram = (datagram*) clientbuff;
-				if(speeddatagram->id < 0)
+				id = ntohl(speeddatagram->id);
+				printf("final id =%d \n",id);
+				if(id < 0)
 				{
 					speed = ntohl(speeddatagram->speed);
 					printf("client recv speed =%f \n",((float)speed)/1000);

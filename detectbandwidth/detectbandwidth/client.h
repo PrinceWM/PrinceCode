@@ -5,12 +5,13 @@ class client
 public:
 	client(thread_Settings *inSettings);
 	~client( void );
-	void run(void);
+	int run(void);
 	int Connect(void);
 	int write_UDP_FIN(void);
 	void initiateserver(void);
 	int setsock_windowsize( int inSock, int inTCPWin, int inSend ) ;
 	void storespeed(int speed);
+	int writetransferrequest();
 
 private:
 	int clientsock;

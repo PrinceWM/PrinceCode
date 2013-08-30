@@ -72,8 +72,13 @@ int ParseArag(int argc, char* argv[], thread_Settings* setting)
 		{//server mode
 			ret = 1;
 		}
+		else if(strcmp(argv[i], "-u") == 0 )
+		{
+			setting->isudp = 1;
+		}
 		else if(strcmp(argv[i], "-b") == 0 )
 		{
+			setting->isudp = 1;//-b just use for udp 
 			setting->mUDPRate = atoi(argv[i+1]);
 			arg_increment++;
 		}
@@ -124,15 +129,18 @@ int main(int argc, char **argv)
 		{
 			printf("client connect error \n");
 		}
-		clientptr->run();
-		delete clientptr;
+		else
+		{		
+			clientptr->run();
+			delete clientptr;
+		}
 	}
 	else if(ret == 1)
 	{//server
 		printf("set server mode\n");
 		server* serverptr = new server(&setting);
 		serverptr->creat();
-		serverptr->UDPSingleServer();
+		serverptr->recvdata();
 		delete serverptr;
 	}
 	else 
