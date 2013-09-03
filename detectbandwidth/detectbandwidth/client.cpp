@@ -4,6 +4,7 @@ client::client( thread_Settings *inSettings )
 {
 	// initialize buffer
 	//printf("float =%d",sizeof(float));
+	int rc = 0;
 	if(inSettings->mHost == NULL || inSettings->mPort == 0)
 	{
 		printf("client para error\n");
@@ -15,7 +16,7 @@ client::client( thread_Settings *inSettings )
 	sockadd.sin_port = htons(inSettings->mPort);
 
 
-	int rc = inet_pton( AF_INET, inSettings->mHost,(unsigned char*)&(sockadd.sin_addr) );
+	rc = inet_pton( AF_INET, inSettings->mHost,(unsigned char*)&(sockadd.sin_addr) );
 
 	printf("add %s : %d\n",inSettings->mHost,inSettings->mPort);
 	udprate = inSettings->mUDPRate;	
@@ -28,9 +29,6 @@ client::client( thread_Settings *inSettings )
 	clientsock = INVALID_SOCKET;
 	speed = 0;
 	memset( clientbuff,23,clientbufflen);
-
-	// connect
-	//Connect( );
 
 } // end Client
 
@@ -51,6 +49,7 @@ client::~client()
 		clientbuff = NULL;                              
 		clientbufflen = 0;
 	}
+	printf("client release \n");
 } // end ~Client
 
 
@@ -86,6 +85,8 @@ int client::Connect( )
 		close(clientsock);
 		return -1;
 	}
+
+
 	return 0;
 } // end Connect
 
@@ -108,20 +109,20 @@ int client::run( void )
 	int adjust = 0; 
 	int packetID = 0;
 	int udptransferid = -1;
-	//int countsendtime = 0;
 	struct timeval packetTime;
 	int ret = -1;
 	//set transfer end time
 	mEndTime.setnow();
 	mEndTime.add( mAmount / 100.0 );
 
+	ret = checkconnectack();
+	if(ret < 0)
+	{
+		return -1;
+	}
+
 	if ( isudp ) 
 	{
-		ret = writetransferrequest();
-		if(ret < 0)
-		{
-			return -1;
-		}
 		udptransferid = ret;
 		// compute delay for bandwidth restriction, constrained to [0,1] seconds 
 		//delay_target it means send clientbufflen byte need how long us
@@ -161,7 +162,6 @@ int client::run( void )
 
 
 		// perform write 
-		//gettimeofday( &packetTime, NULL );
 		//printf("before %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
 
 		currLen = write( clientsock, clientbuff, clientbufflen );
@@ -176,12 +176,8 @@ int client::run( void )
 #endif
 
 		}
-		//gettimeofday( &packetTime, NULL );
 		//printf("end %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
 
-		//countsendtime++;
-		//printf("write data to server %d ret =%d delay=%d,countsendtime=%d id=%d sec=%d usec=%d\n",
-		//	clientbufflen ,currLen,delay,countsendtime,packetID,packetTime.tv_sec,packetTime.tv_usec);
 #ifndef WIN32_BANDTEST                                         
 		if ( currLen < 0 && errno != ENOBUFS )
 #else                                                 
@@ -192,9 +188,6 @@ int client::run( void )
 			break; 
 		}
 
-		// report packets 
-	//	packetLen = currLen;
-	//	gettimeofday( &packetTime, NULL );
 	//	printf("before %d delay=%d \n",packetTime.tv_sec,delay);
 		if ( delay > 1000 && isudp ) 
 		{
@@ -204,7 +197,6 @@ int client::run( void )
             usleep(delay); //us delay
 #endif
 		}
-//		gettimeofday( &packetTime, NULL );
 //		printf("end %d delay=%d \n",packetTime.tv_sec,delay);
 
 
@@ -268,7 +260,6 @@ int client::setsock_windowsize( int inSock, int inTCPWin, int inSend )
 			return rc;
 		}
 	}
-
 	return 0;
 } /* end setsock_tcp_windowsize */
 
@@ -295,7 +286,7 @@ void client::storespeed(int speed)
 #endif
 }
 
-int client::writetransferrequest()
+int client::checkconnectack()
 {
 	//char request[] = "request";
 	fd_set readSet; 
@@ -303,8 +294,15 @@ int client::writetransferrequest()
 	struct timeval timeout; 
 	int rc = 0;
 	int count = 0;
-	memcpy(clientbuff,"request",strlen("request")+1);
-	write( clientsock, clientbuff, clientbufflen );
+	if (clientsock < 0)
+	{
+		return -1;
+	}
+	if(isudp)
+	{	
+		memcpy(clientbuff,"request",strlen("request")+1);
+		write( clientsock, clientbuff, clientbufflen );
+	}
 	while ( count < 10 ) 
 	{
 		count++;
@@ -335,7 +333,6 @@ int client::writetransferrequest()
 				if( rc < 0)
 				{
 #ifdef WIN32_BANDTEST
-
 					printf("read error %d\n",WSAGetLastError());
 #else
 					printf("read error %d\n",errno);
@@ -347,10 +344,21 @@ int client::writetransferrequest()
 				{
 					return -1;
 				}
-				else
-				{
+				else if(isudp)
+				{//do udp ack
 					id = ntohl(((int*)(clientbuff))[0]);
 					return id;
+				}
+				else
+				{//do tcp ack 
+					if(memcmp(clientbuff,"connected",strlen("connected")+1)==0)
+					{
+						return 0;
+					}
+					else
+					{
+						return -1;
+					}
 				}
 			}
 			else
@@ -382,7 +390,7 @@ int client::write_UDP_FIN( )
         // write data
     write( clientsock, clientbuff, clientbufflen );
 //	printf("write final data\n");
-	while ( count < 10 ) 
+	while ( count < 100 ) 
 	{
         count++;
 		// wait until the socket is readable, or our timeout expires 

@@ -1,16 +1,6 @@
 #include "server.h"
 
-
-
-//#define MYPORT 1234    // the port users will be connecting to  
-
-#define SESSIONMAXNUM 5     // how many pending connections queue will hold  
-
-//#define BUF_SIZE 200  
-
-//int fd_A[BACKLOG];    // accepted connection fd  
-//int conn_amount;    // current connection amount  
-
+#define SESSIONMAXNUM 3     // how many pending connections queue will hold  
 
 server::server( thread_Settings *inSettings ) 
 {
@@ -30,7 +20,7 @@ server::server( thread_Settings *inSettings )
 	sessionnum = 0;
 	sessioninfostore = new SESSIONINFO[SESSIONMAXNUM];
 	memset(sessioninfostore,0,SESSIONMAXNUM*sizeof(SESSIONINFO));
-	printf("port %d\n",inSettings->mPort);
+	//printf("port %d\n",inSettings->mPort);
 
 } 
 
@@ -69,7 +59,7 @@ void server::creat( )
 {
 	int rc;
 
-	// create an internet TCP socket
+	// create an internet  socket
 	int type = ((isudp)?SOCK_DGRAM:SOCK_STREAM);
 	int domain = AF_INET;
 
@@ -96,12 +86,6 @@ void server::creat( )
 	if(!isudp)
 	{
 		listen(serversock, 5);
-	//	struct sockaddr_in client;
-	//	memset(&client,0, sizeof(client));
-	//	//bzero(&client, sizeof(client));  
-	//	int len = sizeof(client);  
-	//	//接受连接请求  
-	//	listenedsock = accept(serversock, (struct sockaddr*)(&client),/* (size_t*)*/(&len));  
 	}
 } 
 
@@ -112,6 +96,7 @@ int server::checkselectfd(fd_set* fdset,int maxsock)
 	struct timeval tv;
 	int i = 0;
 	int ret = 0;
+
 	// initialize file descriptor set  
 	FD_ZERO(fdset);  
 	FD_SET(serversock, fdset);  
@@ -181,26 +166,13 @@ int server::checkconnectfd(fd_set* fdset)
 			ret = ioctl (sessioninfostore[i].fd, FIONREAD, &nBytes);	
 #endif
 			
-			//if(ret < serverbufflen)
-			//{
-			//	continue;
-			//}
 			ret = 0;
 RETRY:
-			//ret = ioctlsocket(sessioninfostore[i].fd, FIONREAD, (u_long*)(&nBytes));
-			//ret += (int)read( listenedsock, (char*)(&serverbuff[rc]), (serverbufflen-rc));
 			ret += read(sessioninfostore[i].fd, (char*)(&serverbuff[ret]), (serverbufflen-ret));  
-			//if(count<20)
-			//{count++;
-			//	printf("ret = %d serverbufflen=%d nBytes=%d\n",ret,serverbufflen,nBytes);
-			//}
 			if (ret <= 0) 
-			{        // client close need sort session info store 
+			{ 
+				// client close need sort session info store 
 				printf("client[%d] close/n", i);  
-				//close(sessioninfostore[i].fd);  
-				//FD_CLR(sessioninfostore[i].fd, &fdset);  
-				//sessioninfostore[i].fd = 0;  
-				//sessionnum--;       
 				clearsessioninfo(i,fdset);
 			}
 			else if(ret< serverbufflen)
@@ -215,7 +187,7 @@ RETRY:
 				}
 				else
 				{
-					datagramID = ntohl( ((datagram*) serverbuff)->id ); 
+					datagramID = ntohl(((datagram*) serverbuff)->id ); 
 					//printf("datagramID = %d \n",datagramID);
 					if ( datagramID >= 0 ) 
 					{
@@ -229,13 +201,11 @@ RETRY:
 							sessioninfostore[i].transfertime.setnow();					
 						}
 						sessioninfostore[i].length += ret;
-						if(sessioninfostore[i].length>0)
-						{
-							printf("sessioninfostore[%d].length = %d\n",i,sessioninfostore[i].length);
-						}
+						//if(sessioninfostore[i].length>0)
+						//{
+						//	printf("sessioninfostore[%d].length = %d\n",i,sessioninfostore[i].length);
+						//}
 						//printf("start time %ld %ld\n",transfertime.getSecs(),transfertime.getUsecs());
-						//packetLen = ret;
-						//gettimeofday( &(packetTime), NULL );
 					} 
 					else 
 					{
@@ -256,20 +226,7 @@ RETRY:
 							serverdgmbuff->send_sec = htonl( packetTime.tv_usec ); 				
 							serverdgmbuff->speed = htonl((int)(speed*1000));
 						
-						printf("end time %ld %ld\n",sessioninfostore[i].transfertime.getSecs(),sessioninfostore[i].transfertime.getUsecs());
-						//sessioninfostore[i].length = 0;
-
-						//sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-						//sendTime.tv_usec = ntohl( ((datagram*)serverbuff)->send_usec ); 
-
-						//packetLen = rc;
-						//need check
-						//if(isudp)
-						//{			
-							//ret = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
-						//}
-						//else
-						//{
+							printf("end time %ld %ld\n",sessioninfostore[i].transfertime.getSecs(),sessioninfostore[i].transfertime.getUsecs());
 							ret = write(sessioninfostore[i].fd, serverbuff,sizeof(datagram)/*serverbufflen*/);
 							if(ret < 0)
 							{
@@ -283,7 +240,6 @@ RETRY:
 							{
 								clearsessioninfo(i,fdset);
 							}
-						//}
 						}
 						//printf("send to final packet ret =%d fd=%d\n",ret,sessioninfostore[i].fd);
 					}
@@ -327,11 +283,12 @@ int server::checkaccept(fd_set* fdset,int* maxsock)
 			{
 				*maxsock = new_fd;  
 			}
+			send(new_fd, "connected", strlen("connected")+1, 0);			
 		}  
 		else 
 		{  
-			printf("max connections arrive, exit/n");  
-			send(new_fd, "bye", 4, 0);  
+			printf("max connections arrive, exit \n");  
+			send(new_fd, "bye", strlen("bye")+1, 0);  
 			close(new_fd);  
 			//break;
 			return -2;
@@ -369,9 +326,6 @@ int server::udprecvdata( )
 	datagram* serverdgmbuff = (datagram*)serverbuff;
 	long msfeed = 0;
 	float speed = 0.0;
-	//struct sockaddr_in client_addr; // connector's address information  
-	//socklen_t sin_size;  
-	//sin_size = sizeof(client_addr);
 	iperf_sockaddr clientadd;
 	int clientaddlen = sizeof( iperf_sockaddr );
 	int tempid = -1;
@@ -418,31 +372,21 @@ int server::udprecvdata( )
 		}
 		else
 		{
-			datagramID = ntohl( ((datagram*) serverbuff)->id ); 
-			transferid = ntohl( ((datagram*) serverbuff)->udpid ); 
-			printf("datagramID = %d \n",datagramID);
+			datagramID = ntohl(((datagram*) serverbuff)->id ); 
+			transferid = ntohl(((datagram*) serverbuff)->udpid ); 
+			//printf("datagramID = %d \n",datagramID);
 			if ( datagramID >= 0 ) 
 			{
-				// read the datagram ID and sentTime out of the buffer 
-				//packetID = datagramID; 
-				//sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-				//sendTime.tv_usec = ntohl( ((datagram*) serverbuff)->send_usec ); 
-
 				if(sessioninfostore[transferid].length == 0)
 				{
 					sessioninfostore[transferid].transfertime.setnow();					
 				}
 				sessioninfostore[transferid].length += ret;
-				//printf("start time %ld %ld\n",transfertime.getSecs(),transfertime.getUsecs());
-				//packetLen = ret;
-				//gettimeofday( &(packetTime), NULL );
 			} 
 			else 
 			{
 				printf("datagramID = %d \n",datagramID);
 				gettimeofday( &(packetTime), NULL );
-				// read the datagram ID and sentTime out of the buffer 
-				//packetID = -datagramID; 
 				if(sessioninfostore[transferid].length >0)
 				{
 					msfeed = sessioninfostore[transferid].transfertime.delta_usec();
@@ -454,7 +398,7 @@ int server::udprecvdata( )
 					serverdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
 					serverdgmbuff->send_sec = htonl( packetTime.tv_usec ); 				
 					serverdgmbuff->speed = htonl((int)(speed*1000));
-					ret = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
+					ret = sendto( serversock, serverbuff,sizeof(datagram)/*serverbufflen*/, 0,(struct sockaddr*) &clientadd, clientaddlen);
 					if(ret > 0)
 					{
 						sessioninfostore[transferid].udpsessionuse = false;
@@ -462,26 +406,18 @@ int server::udprecvdata( )
 						sessioninfostore[transferid].transfertime.set(0,0);
 						sessionnum--;
 					}
+					else
+					{
+#ifdef WIN32_BANDTEST
+						printf("final send to error %d\n",WSAGetLastError());
+#else
+						printf("final send to error %d\n",errno);
+#endif
+					}
 				}
-				printf("end time %ld %ld\n",sessioninfostore[transferid].transfertime.getSecs(),sessioninfostore[transferid].transfertime.getUsecs());
-				//sessioninfostore[i].length = 0;
-
-				//sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-				//sendTime.tv_usec = ntohl( ((datagram*)serverbuff)->send_usec ); 
-
-				//packetLen = rc;
-				//need check
-				//if(isudp)
-				//{			
-				
-				//}
-				//else
-				//{
-				//	ret = write(listenedsock, serverbuff,serverbufflen);
-				//}
-				printf("send to final packet ret =%d \n",ret);
+				//printf("end time %ld %ld\n",sessioninfostore[transferid].transfertime.getSecs(),sessioninfostore[transferid].transfertime.getUsecs());
+				//printf("send to final packet ret =%d \n",ret);
 			}
-
 		}
 	}
 	return 0;
@@ -490,38 +426,9 @@ int server::udprecvdata( )
 
 void server::recvdata( ) 
 {
-
-	//Timestamp transfertime;
-	//long msfeed = 0;
-	//int rc = 0;
-	//unsigned int packetLen = 0;
-	//int datagramID;
-	//int packetID = 0;
-	//int recvlen = 0;
-	//struct timeval sendTime;
-	//struct timeval packetTime;
-	//iperf_sockaddr clientadd;
-	//int clientaddlen = sizeof( iperf_sockaddr );
-
-	//datagram* serverdgmbuff = (datagram*)serverbuff;
-	//float speed = 0.0;
-	//int itemp = 0;
-
-
-
 	fd_set fdsr;  
 	int maxsock;  
-	//struct timeval tv;  
-	//int datagramID;
-	//int transferid = -1;;
-	//struct sockaddr_in client_addr; // connector's address information  
-	//socklen_t sin_size;  
-	//int i = 0;
 	int ret = 0;
-	//int new_fd = -1;
-	//int nBytes = 0;
-	//conn_amount = 0;  
-	//sin_size = sizeof(client_addr);  
 	maxsock = serversock;
 	
 	while ( sInterupted == 0) 
@@ -559,132 +466,6 @@ void server::recvdata( )
 			}  
 		}
 	}
-//			rc = 0;
-//RETRY:
-//			//printf("read before \n");
-//			rc += (int)read( listenedsock, (char*)(&serverbuff[rc]), (serverbufflen-rc));
-//			//printf("read end \n");
-//			if(rc == 0)
-//			{//disconnect
-//				printf("server break");
-//				break;
-//			}
-//			else if(rc < serverbufflen)
-//			{
-//				printf("retry rc=%d \n",rc);
-//				goto RETRY;
-//			}
-//		}
-//		if ( rc == SOCKET_ERROR ) 
-//		{
-//			printf("recvfrom error \n");
-//			return;
-//		}
-//		//printf("received data %d id =%d sec=%d usec=%d\n"
-//		//	,rc,ntohl(serverdgmbuff->id),ntohl(serverdgmbuff->send_sec),ntohl(serverdgmbuff->send_usec));
-//
-//		// Handle connection for UDP sockets.
-//		
-//		datagramID = ntohl( ((datagram*) serverbuff)->id ); 
-//		printf("datagramID = %d \n",datagramID);
-//		//if(datagramID >10)
-//		//{
-//		//	break;
-//		//}
-//		if ( datagramID >= 0 ) 
-//		{
-//			// read the datagram ID and sentTime out of the buffer 
-//			packetID = datagramID; 
-//			sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-//			sendTime.tv_usec = ntohl( ((datagram*) serverbuff)->send_usec ); 
-//			
-//			if(recvlen == 0)
-//			{
-//				transfertime.setnow();					
-//			}
-//			recvlen += rc;
-//			//printf("start time %ld %ld\n",transfertime.getSecs(),transfertime.getUsecs());
-//			packetLen = rc;
-//			gettimeofday( &(packetTime), NULL );
-//		} 
-//		else 
-//		{
-//			printf("datagramID = %d \n",datagramID);
-//			gettimeofday( &(packetTime), NULL );
-//			// read the datagram ID and sentTime out of the buffer 
-//			packetID = -datagramID; 
-//			if(recvlen >0)
-//			{
-//				msfeed = transfertime.delta_usec();
-//				speed = (((recvlen*8)/(1024*1024))/((float)msfeed/(1000*1000)));//Mbit/sec
-//				printf("speed = %f recvlen=%d msfeed=%ld\n",speed,recvlen,msfeed);
-//				recvlen = 0;
-//
-//				serverdgmbuff->id      = htonl( datagramID ); 
-//				serverdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
-//				serverdgmbuff->send_sec = htonl( packetTime.tv_usec ); 				
-//				serverdgmbuff->speed = htonl((int)(speed*1000));
-//			}
-//			printf("end time %ld %ld\n",transfertime.getSecs(),transfertime.getUsecs());
-//			recvlen = 0;
-//
-//			//sendTime.tv_sec = ntohl( ((datagram*) serverbuff)->send_sec  );
-//			//sendTime.tv_usec = ntohl( ((datagram*)serverbuff)->send_usec ); 
-//
-//			//packetLen = rc;
-//			//need check
-//			if(isudp)
-//			{			
-//				rc = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
-//			}
-//			else
-//			{
-//				rc = write(listenedsock, serverbuff,serverbufflen);
-//			}
-//			printf("send to final packet rc =%d \n",rc);
-//		}
-//	}
 }
 
 
-//void server::listenrequest::listenrequest(int sock)
-//{
-//	if(sock == INVALID_SOCKET)
-//	{
-//		return;
-//	}
-//	listensock = sock;
-//}
-//
-//void server::listenrequest::~listenrequest()
-//{
-//	listensock = INVALID_SOCKET;
-//}
-//
-//void server::listenrequest::listenling()
-//{
-//	int ret = -1;
-//	if(!isudp)
-//	{
-//		listen(serversock, 5);
-//		struct sockaddr_in client;
-//		memset(&client,0, sizeof(client));
-//		//bzero(&client, sizeof(client));  
-//		int len = sizeof(client);  
-//		//接受连接请求  
-//		listenedsock = accept(serversock, (struct sockaddr*)(&client),/* (size_t*)*/(&len));  
-//		if(listenedsock != INVALID_SOCKET)
-//		{
-//			creatthread();
-//		}
-//	}
-//	else
-//	{
-//		ret = recvfrom();
-//		if(ret>0)
-//		{
-//			//do some thing 
-//			creatthread();
-//		}
-//	}
-//}

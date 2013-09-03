@@ -125,15 +125,21 @@ int main(int argc, char **argv)
 		printf("set client mode\n");
 		client* clientptr = new client(&setting);
 		ret = clientptr->Connect();
+		printf("client connect \n");
 		if(ret != 0)
 		{
 			printf("client connect error \n");
 		}
 		else
 		{		
-			clientptr->run();
-			delete clientptr;
+			ret = clientptr->run();			
+			printf("client run ret = %d\n",ret);
+			if (ret < 0)
+			{
+				printf("not runable \n");
+			}
 		}
+		delete clientptr;
 	}
 	else if(ret == 1)
 	{//server

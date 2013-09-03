@@ -11,7 +11,7 @@ public:
 	void initiateserver(void);
 	int setsock_windowsize( int inSock, int inTCPWin, int inSend ) ;
 	void storespeed(int speed);
-	int writetransferrequest();
+	int checkconnectack();
 
 private:
 	int clientsock;

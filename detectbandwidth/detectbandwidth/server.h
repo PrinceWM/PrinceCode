@@ -42,5 +42,5 @@ private:
 	int localaddlen;
 	bool isudp;
 	SESSIONINFO* sessioninfostore;
-	int sessionnum;
+	int sessionnum;//how many session now use;
 };
