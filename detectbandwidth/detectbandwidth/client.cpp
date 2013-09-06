@@ -15,8 +15,41 @@ client::client( thread_Settings *inSettings )
 	sockadd.sin_family = AF_INET;
 	sockadd.sin_port = htons(inSettings->mPort);
 
+#ifdef WIN32_BANDTEST
+
+	sockadd.sin_addr.s_addr = inet_addr(inSettings->mHost);
+	if(sockadd.sin_addr.s_addr == INADDR_NONE) 	// The address wasn't in numeric
+		// form, resolve it
+	{
+		struct hostent *host = NULL;
+		printf("Resolving host...");
+		host = gethostbyname(inSettings->mHost);	// Get the IP address of the server
+		// and store it in host
+		if(host == NULL)
+		{
+			printf("Error\nUnknown host: %s\n", inSettings->mHost);
+			exit(1);
+		}
+		memcpy(&sockadd.sin_addr, host->h_addr_list[0],host->h_length);
+		//printf("OK\n");
+	}
+#else
 
 	rc = inet_pton( AF_INET, inSettings->mHost,(unsigned char*)&(sockadd.sin_addr) );
+	if( rc <= 0 )
+	{
+#ifdef WIN32_BANDTEST
+
+		printf("inet_pton error %d\n",WSAGetLastError());
+#else
+		printf("inet_pton error %d\n",errno);
+#endif
+		
+	}
+
+	//rc = inet_aton(inSettings->mHost,(unsigned char*)&(sockadd.sin_addr));
+#endif
+
 
 	printf("add %s : %d\n",inSettings->mHost,inSettings->mPort);
 	udprate = inSettings->mUDPRate;	
@@ -67,25 +100,35 @@ int client::Connect( )
 		printf("creat client socket fail \n");
 		return -1;
 	}
+	int theTCPWin;
+	int len = sizeof(int);;
+	rc = getsockopt( clientsock, SOL_SOCKET, SO_SNDBUF,(char*) &theTCPWin, &len );
+	printf("client send buff:%d \n",theTCPWin);
+	rc = getsockopt( clientsock, SOL_SOCKET, SO_RCVBUF,(char*) &theTCPWin, &len );
+	printf("client recv buff:%d \n",theTCPWin);
+
+
+
 	if(clientWin> 0)
 	{
 		setsock_windowsize(clientsock,clientWin,false);
 	}
+	
+	if(!isudp)
+	{// connect socket
+		rc = connect( clientsock, (sockaddr*) &sockadd,sockaddlen);
+		if( rc != 0 )
+		{
+	#ifdef WIN32_BANDTEST
 
-	// connect socket
-	rc = connect( clientsock, (sockaddr*) &sockadd,sockaddlen);
-	if( rc != 0 )
-	{
-#ifdef WIN32_BANDTEST
-
-		printf("client connect error %d\n",WSAGetLastError());
-#else
-		printf("client connect error %d\n",errno);
-#endif
-		close(clientsock);
-		return -1;
+			printf("client connect error %d\n",WSAGetLastError());
+	#else
+			printf("client connect error %d\n",errno);
+	#endif
+			close(clientsock);
+			return -1;
+		}
 	}
-
 
 	return 0;
 } // end Connect
@@ -118,6 +161,7 @@ int client::run( void )
 	ret = checkconnectack();
 	if(ret < 0)
 	{
+		printf("check ack error\n");
 		return -1;
 	}
 
@@ -163,9 +207,14 @@ int client::run( void )
 
 		// perform write 
 		//printf("before %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
-
-		currLen = write( clientsock, clientbuff, clientbufflen );
-		
+		if(isudp)
+		{
+			currLen = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
+		}
+		else
+		{		
+			currLen = write( clientsock, clientbuff, clientbufflen );
+		}
 		if(currLen<=0)
 		{
 #ifdef WIN32_BANDTEST
@@ -294,6 +343,9 @@ int client::checkconnectack()
 	struct timeval timeout; 
 	int rc = 0;
 	int count = 0;
+	iperf_sockaddr serveraddtmp;
+	int serveraddtmplen = sizeof( iperf_sockaddr );
+
 	if (clientsock < 0)
 	{
 		return -1;
@@ -301,8 +353,23 @@ int client::checkconnectack()
 	if(isudp)
 	{	
 		memcpy(clientbuff,"request",strlen("request")+1);
-		write( clientsock, clientbuff, clientbufflen );
+		//write( clientsock, clientbuff, clientbufflen );
+		rc = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
+		if(rc < 0)
+		{
+#ifdef WIN32_BANDTEST
+			printf("send to error %d\n",WSAGetLastError());
+#else
+			printf("send to error %d\n",errno);
+#endif
+
+		}
+		else
+		{
+			printf("rc = %d \n",rc);
+		}
 	}
+
 	while ( count < 10 ) 
 	{
 		count++;
@@ -329,7 +396,15 @@ int client::checkconnectack()
 			if(FD_ISSET(clientsock,&readSet)>0)
 			{				
 				// socket ready to read 
-				rc = read( clientsock, clientbuff, clientbufflen ); 
+				printf("get read data \n");
+				if(isudp)
+				{
+					rc = (int)recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &serveraddtmp, (socklen_t *)&serveraddtmplen );		
+				}
+				else
+				{				
+					rc = read( clientsock, clientbuff, clientbufflen ); 
+				}
 				if( rc < 0)
 				{
 #ifdef WIN32_BANDTEST
@@ -346,11 +421,12 @@ int client::checkconnectack()
 				}
 				else if(isudp)
 				{//do udp ack
+					printf("get udp ack data \n");
 					id = ntohl(((int*)(clientbuff))[0]);
 					return id;
 				}
 				else
-				{//do tcp ack 
+				{//do tcp ack 					
 					if(memcmp(clientbuff,"connected",strlen("connected")+1)==0)
 					{
 						return 0;
@@ -383,12 +459,31 @@ int client::write_UDP_FIN( )
 	fd_set readSet; 
 	int id = 0;
 	struct timeval timeout; 
-	//iperf_sockaddr tmpadd;
+	iperf_sockaddr tmpadd;
 	int tmpaddlen = sizeof( iperf_sockaddr );
 	datagram* speeddatagram = NULL;
 	int count = 0; 
         // write data
-    write( clientsock, clientbuff, clientbufflen );
+	if(isudp)
+	{
+		rc = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
+	}
+	else
+	{
+		rc = write( clientsock, clientbuff, clientbufflen );
+	}
+
+	if( rc < 0)
+	{
+#ifdef WIN32_BANDTEST
+
+		printf("send last %d\n",WSAGetLastError());
+#else
+		printf("send last %d\n",errno);
+#endif
+		return -1;
+	}			
+
 //	printf("write final data\n");
 	while ( count < 100 ) 
 	{
@@ -416,7 +511,14 @@ int client::write_UDP_FIN( )
 			if(FD_ISSET(clientsock,&readSet)>0)
 			{				
 				// socket ready to read 
-				rc = read( clientsock, clientbuff, sizeof(datagram)/*clientbufflen*/ ); 
+				if (isudp)
+				{
+					rc = recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &tmpadd, &tmpaddlen );
+				}
+				else
+				{				
+					rc = read( clientsock, clientbuff, sizeof(datagram)/*clientbufflen*/ ); 
+				}
 				//rc = recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &tmpadd, &tmpaddlen );
 				printf("client rc = %d\n",rc);
 				if( rc < 0)

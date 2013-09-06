@@ -18,7 +18,7 @@ void Settings_Initialize( thread_Settings *main ) {
 	//main->mFormat       = 'a';           // -f,  adaptive bits
 	// skip help                         // -h,
 	//main->mBufLenSet  = false;         // -l,	
-	main->mBufLen       = 32 * 1024;      // -l,  8 Kbyte
+	main->mBufLen       = /*32 * 1024*/512;      // -l,  8 Kbyte
 	//main->mInterval     = 0;           // -i,  ie. no periodic bw reports
 	//main->mPrintMSS   = false;         // -m,  don't print MSS
 	// mAmount is time also              // -n,  N/A
@@ -113,7 +113,8 @@ int main(int argc, char **argv)
 #ifdef WIN32_BANDTEST
 	// Start winsock
 	WSADATA wsaData;
-	int rc = WSAStartup( 0x202, &wsaData );	
+	int rc = WSAStartup(MAKEWORD(1,1), &wsaData);
+	//int rc = WSAStartup( 0x202, &wsaData );	
 	if (rc == SOCKET_ERROR)
 		return 0;
 
@@ -125,7 +126,7 @@ int main(int argc, char **argv)
 		printf("set client mode\n");
 		client* clientptr = new client(&setting);
 		ret = clientptr->Connect();
-		printf("client connect \n");
+		//printf("client connect \n");
 		if(ret != 0)
 		{
 			printf("client connect error \n");
@@ -133,13 +134,14 @@ int main(int argc, char **argv)
 		else
 		{		
 			ret = clientptr->run();			
-			printf("client run ret = %d\n",ret);
+			//printf("client run ret in main = %d\n",ret);
 			if (ret < 0)
 			{
 				printf("not runable \n");
 			}
 		}
 		delete clientptr;
+		system("pause");
 	}
 	else if(ret == 1)
 	{//server
@@ -153,6 +155,14 @@ int main(int argc, char **argv)
 	{
 		printf("not set mode");
 	}
-	while(1);
+#ifdef WIN32_BANDTEST
+	rc = WSACleanup ( );	
+	if (rc == SOCKET_ERROR)
+	{
+		printf("cleanup sock error\n");
+		return 0;
+	}
+#endif
+	//while(1);
 	return 0;
 }

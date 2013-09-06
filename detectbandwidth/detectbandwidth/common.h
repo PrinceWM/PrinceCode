@@ -12,6 +12,7 @@
 #include <math.h>
 
 #ifdef WIN32_BANDTEST
+//#include <winsock.h>
 #include <winsock2.h>  //windows
 #include <windows.h>
 #include <ws2tcpip.h>

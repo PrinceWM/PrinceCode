@@ -9,13 +9,18 @@ server::server( thread_Settings *inSettings )
 	serversock = INVALID_SOCKET;
 	listenedsock = INVALID_SOCKET;
 	serverbufflen = inSettings->mBufLen;
+	printf("inSettings->mBufLen = %d \n",inSettings->mBufLen);
 	serverbuff = new char[ serverbufflen ];
 	serversockwin = inSettings->mTCPWin;
 	
 	memset(&localadd,0,sizeof(localadd));
 	localadd.sin_family = AF_INET;
 	localadd.sin_port = htons(inSettings->mPort);
+	localadd.sin_addr.s_addr = INADDR_ANY;
 	localaddlen = sizeof(localadd);
+
+	
+
 	isudp = inSettings->isudp;
 	sessionnum = 0;
 	sessioninfostore = new SESSIONINFO[SESSIONMAXNUM];
@@ -62,15 +67,32 @@ void server::creat( )
 	// create an internet  socket
 	int type = ((isudp)?SOCK_DGRAM:SOCK_STREAM);
 	int domain = AF_INET;
-
-	serversock = socket( domain, type, 0 );
+	if(isudp)
+	{			
+		serversock = socket( domain, type, IPPROTO_UDP );
+		printf(" sock type: %d serversock=%d\n",type ,serversock);
+	}
+	else
+	{	
+		serversock = socket( domain, type, 0 );
+	}
+	
 	if(serversock == INVALID_SOCKET)
 	{
 		printf("server sock fail \n");
 	}
 	//set socket send buff size	
-	setsockopt( serversock, SOL_SOCKET, SO_SNDBUF,(char*) &serversockwin, sizeof( serversockwin ));
-	
+	//setsockopt( serversock, SOL_SOCKET, SO_SNDBUF,(char*) &serversockwin, sizeof( serversockwin ));
+	do
+	{
+		int theTCPWin;
+	int len = sizeof(int);
+	rc = getsockopt( serversock, SOL_SOCKET, SO_SNDBUF,(char*) &theTCPWin, &len );
+	printf("server send buff:%d rc = %d error=%d\n",theTCPWin,rc,WSAGetLastError());
+	rc = getsockopt( serversock, SOL_SOCKET, SO_RCVBUF,(char*) &theTCPWin, &len );
+	printf("server recv buff:%d rc=%d error=%d\n",theTCPWin,rc,WSAGetLastError());
+	}while (0);
+	//getsockopt(serversock, SOL_SOCKET, SO_SNDBUF,(char*) &serversockwin, sizeof( serversockwin ));
 	// reuse the address, so we can run if a former server was killed off
 	int boolean = 1;
 	int len = sizeof(boolean);
@@ -163,7 +185,7 @@ int server::checkconnectfd(fd_set* fdset)
 #ifdef WIN32_BANDTEST
 			//ret = ioctlsocket(sessioninfostore[i].fd, FIONREAD, (u_long*)(&nBytes));
 #else
-			ret = ioctl (sessioninfostore[i].fd, FIONREAD, &nBytes);	
+			//ret = ioctl (sessioninfostore[i].fd, FIONREAD, &nBytes);	
 #endif
 			
 			ret = 0;
@@ -314,7 +336,7 @@ int server::getudptransferuid()
 	}
 	return -1;
 }
-
+int count = 0;
 int server::udprecvdata( )
 {
 	fd_set fdsr ;
@@ -327,11 +349,11 @@ int server::udprecvdata( )
 	long msfeed = 0;
 	float speed = 0.0;
 	iperf_sockaddr clientadd;
-	int clientaddlen = sizeof( iperf_sockaddr );
+	int clientaddlen /*= sizeof( iperf_sockaddr )*/;
 	int tempid = -1;
+	//char serverbuff11[512];
 
-
-
+#if 1
 	FD_ZERO(&fdsr);  
 	FD_SET(serversock, &fdsr);
 	
@@ -353,20 +375,30 @@ int server::udprecvdata( )
 		return -2;
 	}
 	if (FD_ISSET(serversock, &fdsr))
-	{
+#endif
+	{	
+		clientaddlen = sizeof(clientadd);
 		ret = (int)recvfrom( serversock, serverbuff, serverbufflen, 0,(struct sockaddr*) &clientadd, (socklen_t *)&clientaddlen );		
+		if(count++<3)
+		{
+			printf("server get data ret=%d error=%d ,serversock=%d serverbuff=%p\n",ret ,WSAGetLastError(),serversock,serverbuff);
+			//return -1;
+		}
+		
 		if(memcmp(serverbuff,"request",strlen("request")+1)==0)
 		{
 			tempid = getudptransferuid();
 			if(tempid < 0)
 			{
 				memcpy(serverbuff,"bye",strlen("bye")+1);
+				printf("send bye \n");
 				ret = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
 			}
 			else
 			{
 				((int *)(serverbuff))[0] = ntohl( tempid );
 				sessionnum++;
+				printf("send id \n");
 				ret = sendto( serversock, serverbuff,serverbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
 			}
 		}
@@ -421,7 +453,6 @@ int server::udprecvdata( )
 		}
 	}
 	return 0;
-
 }
 
 void server::recvdata( ) 
@@ -436,7 +467,7 @@ void server::recvdata( )
 		if(isudp)
 		{
 			ret = udprecvdata();
-			if( ret <0 )
+			if( ret < 0 )
 			{
 				continue;
 			}
