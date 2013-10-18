@@ -25,5 +25,5 @@ private:
 	Timestamp lastPacketTime;
 	long long udprate;
 	long long mAmount;
-	int speed ;
+	int speed ;	
 };

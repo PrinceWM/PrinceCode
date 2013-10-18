@@ -9,7 +9,8 @@ server::server( thread_Settings *inSettings )
 	serversock = INVALID_SOCKET;
 	listenedsock = INVALID_SOCKET;
 	serverbufflen = inSettings->mBufLen;
-	printf("inSettings->mBufLen = %d \n",inSettings->mBufLen);
+    mAmount = inSettings->mAmount;
+	//printf("inSettings->mBufLen = %d \n",inSettings->mBufLen);
 	serverbuff = new char[ serverbufflen ];
 	serversockwin = inSettings->mTCPWin;
 	
@@ -70,7 +71,7 @@ void server::creat( )
 	if(isudp)
 	{			
 		serversock = socket( domain, type, IPPROTO_UDP );
-		printf(" sock type: %d serversock=%d\n",type ,serversock);
+		//printf(" sock type: %d serversock=%d\n",type ,serversock);
 	}
 	else
 	{	
@@ -86,11 +87,14 @@ void server::creat( )
 	do
 	{
 		int theTCPWin;
+		//printf("serversockwin=%d\n",serversockwin);
+	rc = setsockopt( serversock, SOL_SOCKET, SO_RCVBUF,(char*) &serversockwin, sizeof( serversockwin ));
+	//printf("server send buff:%d rc = %d error=%d\n",theTCPWin,rc,WSAGetLastError());
 	int len = sizeof(int);
 	rc = getsockopt( serversock, SOL_SOCKET, SO_SNDBUF,(char*) &theTCPWin, &len );
-	printf("server send buff:%d rc = %d error=%d\n",theTCPWin,rc,WSAGetLastError());
+	//printf("server send buff:%d rc = %d error=%d\n",theTCPWin,rc,WSAGetLastError());
 	rc = getsockopt( serversock, SOL_SOCKET, SO_RCVBUF,(char*) &theTCPWin, &len );
-	printf("server recv buff:%d rc=%d error=%d\n",theTCPWin,rc,WSAGetLastError());
+	//printf("server recv buff:%d rc=%d error=%d\n",theTCPWin,rc,WSAGetLastError());
 	}while (0);
 	//getsockopt(serversock, SOL_SOCKET, SO_SNDBUF,(char*) &serversockwin, sizeof( serversockwin ));
 	// reuse the address, so we can run if a former server was killed off
@@ -140,7 +144,7 @@ int server::checkselectfd(fd_set* fdset,int maxsock)
 }
 
 int server::clearsessioninfo(int index,fd_set* fdset)
-{
+{//error
 	if(sessioninfostore == NULL || index >= SESSIONMAXNUM || index < 0)
 	{
 		return -1;
@@ -194,7 +198,13 @@ RETRY:
 			if (ret <= 0) 
 			{ 
 				// client close need sort session info store 
-				printf("client[%d] close/n", i);  
+				
+#ifdef WIN32_BANDTEST
+				printf("server read error %d\n",WSAGetLastError());
+#else
+				printf("server read error %d\n",errno);
+#endif
+
 				clearsessioninfo(i,fdset);
 			}
 			else if(ret< serverbufflen)
@@ -336,7 +346,64 @@ int server::getudptransferuid()
 	}
 	return -1;
 }
-int count = 0;
+
+int server::udpupdatesession( )
+{
+	int itemp;
+	long time = 0;
+	long msfeed = 0;
+	double speed = 0.0;
+	datagram* serverdgmbuff = (datagram*)serverbuff;
+	int ret = 0;
+	struct timeval currentTime;
+	gettimeofday(&currentTime,NULL);
+	for(itemp = 0;itemp<SESSIONMAXNUM;itemp++)
+	{
+		if(sessioninfostore[itemp].udpsessionuse ==  true&&sessioninfostore[itemp].length > 0)
+		{
+			sessioninfostore[itemp].currenttime.set(currentTime.tv_sec,currentTime.tv_usec);
+			time = sessioninfostore[itemp].currenttime.subUsec(sessioninfostore[itemp].transfertime);
+			if(time >= ((mAmount/100)+4)*(1e6))//ns
+			{
+				printf("send speed id\n");
+
+				msfeed = sessioninfostore[itemp].transfertime.delta_usec();
+				printf("end time %d: %d %d \n",itemp,sessioninfostore[itemp].transfertime.getSecs(),sessioninfostore[itemp].transfertime.getUsecs());
+				//speed = (((double)(sessioninfostore[itemp].length*8)/(1024*1024))/((double)msfeed/(1000*1000)));//Mbit/sec
+				speed = ((double)(sessioninfostore[itemp].length*8)/(1024*1024))/(mAmount/100);
+				printf("speed = %f sessioninfostore[i].length=%d msfeed=%ld recvpack=%d\n",speed,sessioninfostore[itemp].length,msfeed,sessioninfostore[itemp].length/serverbufflen);
+
+				serverdgmbuff->id      = htonl( /*datagramID*/-2 ); 
+				serverdgmbuff->send_sec  = htonl( currentTime.tv_sec ); 
+				serverdgmbuff->send_sec = htonl( currentTime.tv_usec ); 				
+				serverdgmbuff->speed = htonl((int)(speed*1000));
+				ret = sendto( serversock, serverbuff,sizeof(datagram)/*serverbufflen*/, 0,(struct sockaddr*) &sessioninfostore[itemp].clientadd, sessioninfostore[itemp].clientaddlen);
+				if(ret > 0)
+				{
+					sessioninfostore[itemp].udpsessionuse = false;
+					sessioninfostore[itemp].length = 0;
+					sessioninfostore[itemp].transfertime.set(0,0);
+					sessioninfostore[itemp].currenttime.set(0,0);
+					memset(&sessioninfostore[itemp].clientadd,0,sizeof(sessioninfostore[itemp].clientadd));
+					sessioninfostore[itemp].clientaddlen = 0;
+					sessionnum--;
+					return 1;
+				}
+				else
+				{
+#ifdef WIN32_BANDTEST
+					printf("final send to error %d\n",WSAGetLastError());
+#else
+					printf("final send to error %d\n",errno);
+#endif
+					return -1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+//int count = 0;
 int server::udprecvdata( )
 {
 	fd_set fdsr ;
@@ -347,12 +414,15 @@ int server::udprecvdata( )
 	int transferid = -1;
 	datagram* serverdgmbuff = (datagram*)serverbuff;
 	long msfeed = 0;
-	float speed = 0.0;
+	double speed = 0.0;
 	iperf_sockaddr clientadd;
 	int clientaddlen /*= sizeof( iperf_sockaddr )*/;
 	int tempid = -1;
+	static int packcount = 0;
 	//char serverbuff11[512];
+	long time = 0;
 
+	udpupdatesession();
 #if 1
 	FD_ZERO(&fdsr);  
 	FD_SET(serversock, &fdsr);
@@ -364,7 +434,7 @@ int server::udprecvdata( )
 	ret = select(serversock + 1, &fdsr, NULL, NULL, &tv);
 	if (ret < 0) 
 	{  
-		perror("select");  
+		printf("select error \n");  
 		//break;
 		return -1;
 	} 
@@ -379,11 +449,6 @@ int server::udprecvdata( )
 	{	
 		clientaddlen = sizeof(clientadd);
 		ret = (int)recvfrom( serversock, serverbuff, serverbufflen, 0,(struct sockaddr*) &clientadd, (socklen_t *)&clientaddlen );		
-		if(count++<3)
-		{
-			printf("server get data ret=%d error=%d ,serversock=%d serverbuff=%p\n",ret ,WSAGetLastError(),serversock,serverbuff);
-			//return -1;
-		}
 		
 		if(memcmp(serverbuff,"request",strlen("request")+1)==0)
 		{
@@ -406,15 +471,63 @@ int server::udprecvdata( )
 		{
 			datagramID = ntohl(((datagram*) serverbuff)->id ); 
 			transferid = ntohl(((datagram*) serverbuff)->udpid ); 
+			if(sessioninfostore[transferid].udpsessionuse == false)
+			{//check this session allow
+				return -1;
+			}
 			//printf("datagramID = %d \n",datagramID);
 			if ( datagramID >= 0 ) 
 			{
 				if(sessioninfostore[transferid].length == 0)
 				{
-					sessioninfostore[transferid].transfertime.setnow();					
+					sessioninfostore[transferid].transfertime.setnow();
+					memcpy(&sessioninfostore[transferid].clientadd,&clientadd,sizeof(clientadd));
+					sessioninfostore[transferid].clientaddlen = sizeof(clientadd);
+					printf("start time %d :%d %d \n",transferid,sessioninfostore[transferid].transfertime.getSecs(),sessioninfostore[transferid].transfertime.getUsecs());
 				}
 				sessioninfostore[transferid].length += ret;
-			} 
+				//sessioninfostore[transferid].currenttime.setnow();
+				//time = sessioninfostore[transferid].currenttime.subUsec(sessioninfostore[transferid].transfertime);
+				packcount++;
+				//printf("time =%d abidance =%d\n",time,((mAmount/100)+4)*(1e6));
+
+#if 0
+				if(time/*sessioninfostore[transferid].currenttime.subUsec(sessioninfostore[transferid].transfertime)*/ >= ((mAmount/100)+4)*(1e6))//ns
+				{
+					printf("send speed id\n");
+					
+					msfeed = sessioninfostore[transferid].transfertime.delta_usec();
+					printf("end time %d: %d %d \n",transferid,sessioninfostore[transferid].transfertime.getSecs(),sessioninfostore[transferid].transfertime.getUsecs());
+					speed = (((double)(sessioninfostore[transferid].length*8)/(1024*1024))/((double)msfeed/(1000*1000)));//Mbit/sec
+
+					printf("speed = %f sessioninfostore[i].length=%d msfeed=%ld count=%d\n",speed,sessioninfostore[transferid].length,msfeed,packcount);
+					packcount=0;
+
+					serverdgmbuff->id      = htonl( /*datagramID*/-2 ); 
+					serverdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
+					serverdgmbuff->send_sec = htonl( packetTime.tv_usec ); 				
+					serverdgmbuff->speed = htonl((int)(speed*1000));
+					ret = sendto( serversock, serverbuff,sizeof(datagram)/*serverbufflen*/, 0,(struct sockaddr*) &clientadd, clientaddlen);
+					if(ret > 0)
+					{
+						sessioninfostore[transferid].udpsessionuse = false;
+						sessioninfostore[transferid].length = 0;
+						sessioninfostore[transferid].transfertime.set(0,0);
+						sessioninfostore[transferid].currenttime.set(0,0);
+						sessionnum--;
+					}
+					else
+					{
+#ifdef WIN32_BANDTEST
+						printf("final send to error %d\n",WSAGetLastError());
+#else
+						printf("final send to error %d\n",errno);
+#endif
+					}
+				}
+#endif
+			}
+#if 0
 			else 
 			{
 				printf("datagramID = %d \n",datagramID);
@@ -450,6 +563,7 @@ int server::udprecvdata( )
 				//printf("end time %ld %ld\n",sessioninfostore[transferid].transfertime.getSecs(),sessioninfostore[transferid].transfertime.getUsecs());
 				//printf("send to final packet ret =%d \n",ret);
 			}
+#endif
 		}
 	}
 	return 0;
@@ -461,9 +575,15 @@ void server::recvdata( )
 	int maxsock;  
 	int ret = 0;
 	maxsock = serversock;
-	
+#if 0
+	if(isudp)
+	{	
+		ret = udprecvdata1();
+		return ;
+	}
+#endif
 	while ( sInterupted == 0) 
-	{		
+	{			
 		if(isudp)
 		{
 			ret = udprecvdata();

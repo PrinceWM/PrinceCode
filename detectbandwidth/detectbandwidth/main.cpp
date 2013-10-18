@@ -18,6 +18,9 @@ void Settings_Initialize( thread_Settings *main ) {
 	//main->mFormat       = 'a';           // -f,  adaptive bits
 	// skip help                         // -h,
 	//main->mBufLenSet  = false;         // -l,	
+	main->isudp = 1;
+	main->mHost = (char*)malloc(strlen("112.124.0.75"));	
+	memcpy(main->mHost,"112.124.0.75",strlen("112.124.0.75"));
 	main->mBufLen       = /*32 * 1024*/512;      // -l,  8 Kbyte
 	//main->mInterval     = 0;           // -i,  ie. no periodic bw reports
 	//main->mPrintMSS   = false;         // -m,  don't print MSS
@@ -26,7 +29,7 @@ void Settings_Initialize( thread_Settings *main ) {
 	main->mPort         = 5001;          // -p,  ttcp port
 	// mMode    = kTest_Normal;          // -r,  mMode == kTest_TradeOff
 	//main->mThreadMode   = kMode_Unknown; // -s,  or -c, none
-	main->mAmount       = 1000;          // -t,  10 seconds
+	main->mAmount       = 500;          // -t,  5 seconds
 	// mUDPRate > 0 means UDP            // -u,  N/A, see kDefault_UDPRate
 	// skip version                      // -v,
 	//main->mTCPWin       = 0;           // -w,  ie. don't set window
@@ -54,7 +57,7 @@ void Settings_Initialize( thread_Settings *main ) {
 
 int ParseArag(int argc, char* argv[], thread_Settings* setting)
 {
-	int ret = -1;
+	int ret = 0;
 	int i = 0;
 	int arg_increment = 1;
 	for (i = 1; i < argc; i += arg_increment)
@@ -109,6 +112,8 @@ int ParseArag(int argc, char* argv[], thread_Settings* setting)
 int main(int argc, char **argv)
 {
 	thread_Settings setting;
+	int lastspeed = 0;
+	int currspeed = 0;
 	int ret = -1;
 #ifdef WIN32_BANDTEST
 	// Start winsock
@@ -124,6 +129,7 @@ int main(int argc, char **argv)
 	if(ret == 0)
 	{//client
 		printf("set client mode\n");
+REDETECT:
 		client* clientptr = new client(&setting);
 		ret = clientptr->Connect();
 		//printf("client connect \n");
@@ -133,14 +139,23 @@ int main(int argc, char **argv)
 		}
 		else
 		{		
-			ret = clientptr->run();			
+			currspeed = clientptr->run();			
 			//printf("client run ret in main = %d\n",ret);
-			if (ret < 0)
+			if (currspeed < 0)
 			{
 				printf("not runable \n");
 			}
 		}
 		delete clientptr;
+
+		if(setting.isudp&&currspeed>lastspeed)
+		{
+			lastspeed = currspeed;
+			setting.mUDPRate = setting.mUDPRate*2; 
+			Sleep(1000*3);
+			goto REDETECT;
+		}
+		printf("detect speed is %d kbit /sec",lastspeed);
 		system("pause");
 	}
 	else if(ret == 1)

@@ -34,7 +34,7 @@
 #include "timestamp.h"
 
 
-const long kDefault_UDPRate = 1024 * 1024; // -u  if set, 1 Mbit/sec
+const long kDefault_UDPRate = 256*1024;//1024 * 1024; // -u  if set, 1 Mbit/sec
 
 
 typedef struct datagram

@@ -103,9 +103,9 @@ int client::Connect( )
 	int theTCPWin;
 	int len = sizeof(int);;
 	rc = getsockopt( clientsock, SOL_SOCKET, SO_SNDBUF,(char*) &theTCPWin, &len );
-	printf("client send buff:%d \n",theTCPWin);
+	//printf("client send buff:%d \n",theTCPWin);
 	rc = getsockopt( clientsock, SOL_SOCKET, SO_RCVBUF,(char*) &theTCPWin, &len );
-	printf("client recv buff:%d \n",theTCPWin);
+	//printf("client recv buff:%d \n",theTCPWin);
 
 
 
@@ -153,10 +153,15 @@ int client::run( void )
 	int packetID = 0;
 	int udptransferid = -1;
 	struct timeval packetTime;
+	fd_set fd_read;
+	struct timeval tv;
 	int ret = -1;
+	int packcount = 0;
+	int lastspeed = 0;
+	int timoutcount = 0;
 	//set transfer end time
 	mEndTime.setnow();
-	mEndTime.add( mAmount / 100.0 );
+	mEndTime.add( mAmount / 100.0 ); 
 
 	ret = checkconnectack();
 	if(ret < 0)
@@ -181,6 +186,7 @@ int client::run( void )
 
 	lastPacketTime.setnow();
 
+
 	do {
 		gettimeofday( &(packetTime), NULL );
 		clientdgmbuff->id      = htonl( packetID++ ); 
@@ -203,6 +209,57 @@ int client::run( void )
 				delay += adjust; 
 			}
 		}
+
+#if 0
+		FD_ZERO(&fd_read);
+		FD_SET(clientsock, &fd_read);
+
+		ret = select(clientsock + 1, (fd_set*)&fd_read,0, (fd_set*)0, &tv);
+
+		if(ret > 0)
+		{
+			if(FD_ISSET(clientsock, &fd_read))
+			{
+				//printf("receive speed packet \n");
+				if(isudp)
+				{
+					ret = (int)recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &sockadd, (socklen_t *)&sockaddlen );		
+				}
+				else
+				{				
+					ret = read( clientsock, clientbuff, clientbufflen ); 
+				}
+				if( ret < 0)
+				{
+#ifdef WIN32_BANDTEST
+					printf("read error %d\n",WSAGetLastError());
+#else
+					printf("read error %d\n",errno);
+#endif
+					return -1;
+				}		
+				if(ntohl(clientdgmbuff->id) == -2)
+				{
+					speed = ntohl(clientdgmbuff->speed);
+					if(speed > 0)
+					{	
+						storespeed(speed);
+						printf("client speed =%d kbit/sec packcount=%d\n",speed,packcount);
+						return speed;
+					}	
+				}
+				else
+				{
+					printf("packet info error\n");
+				}
+
+			}
+		}
+
+
+#endif
+
+
 
 
 		// perform write 
@@ -236,8 +293,8 @@ int client::run( void )
 			printf("write error\n");
 			break; 
 		}
-
-	//	printf("before %d delay=%d \n",packetTime.tv_sec,delay);
+		packcount++;
+		//printf("before %d delay=%d adjust=%d\n",packetTime.tv_sec,delay,adjust);
 		if ( delay > 1000 && isudp ) 
 		{
 #ifdef WIN32_BANDTEST
@@ -251,6 +308,73 @@ int client::run( void )
 
 	} while ( ! (sInterupted  || (mEndTime.before( packetTime )))); 
 
+	printf("send finish packcount =%d wait recv \n",packcount);
+#define MAXTIMOUT (100)
+	tv.tv_sec = 0;
+	tv.tv_usec = 100*1000;//100 ms
+	printf("tv.tv_usec = %d\n",tv.tv_usec);
+	while(1)
+	{
+		FD_ZERO(&fd_read);
+		FD_SET(clientsock, &fd_read);
+
+		ret = select(clientsock + 1, (fd_set*)&fd_read,0, (fd_set*)0, &tv);
+		if ( ret == 0 ) 
+		{
+			if(timoutcount++ > MAXTIMOUT)
+			{//did't receive speed
+				return -1;
+			}
+			// select timed out 
+			continue; 
+		}
+		else if( ret == SOCKET_ERROR)
+		{
+			printf("select error \n");
+			return -1;
+		}
+		else if(ret > 0)
+		{
+			if(FD_ISSET(clientsock, &fd_read))
+			{
+				//printf("receive speed packet \n");
+				if(isudp)
+				{
+					ret = (int)recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &sockadd, (socklen_t *)&sockaddlen );		
+				}
+				else
+				{				
+					ret = read( clientsock, clientbuff, clientbufflen ); 
+				}
+				if( ret < 0)
+				{
+	#ifdef WIN32_BANDTEST
+					printf("read error %d\n",WSAGetLastError());
+	#else
+					printf("read error %d\n",errno);
+	#endif
+					return -1;
+				}		
+				if(ntohl(clientdgmbuff->id) == -2)
+				{
+					speed = ntohl(clientdgmbuff->speed);
+					if(speed > 0)
+					{	
+						storespeed(speed);
+						//currLen = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
+						printf("client speed =%d kbit/sec packcount=%d\n",speed,packcount);
+						return speed;
+					}	
+				}
+				else
+				{
+					printf("packet info error\n");
+				}
+			}
+		}
+	}
+
+#if 0
 	// stop timing
 	gettimeofday( &packetTime, NULL );
 	printf("send final data\n");
@@ -272,7 +396,8 @@ int client::run( void )
 			storespeed(speed);
 		}
 	}
-	return 0;
+	return speed;
+#endif
 } // end Run
 
 void client::initiateserver() 
@@ -366,7 +491,7 @@ int client::checkconnectack()
 		}
 		else
 		{
-			printf("rc = %d \n",rc);
+			//printf("rc = %d \n",rc);
 		}
 	}
 
@@ -396,7 +521,7 @@ int client::checkconnectack()
 			if(FD_ISSET(clientsock,&readSet)>0)
 			{				
 				// socket ready to read 
-				printf("get read data \n");
+				//printf("get read data \n");
 				if(isudp)
 				{
 					rc = (int)recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &serveraddtmp, (socklen_t *)&serveraddtmplen );		
@@ -421,7 +546,7 @@ int client::checkconnectack()
 				}
 				else if(isudp)
 				{//do udp ack
-					printf("get udp ack data \n");
+					//printf("get udp ack data \n");
 					id = ntohl(((int*)(clientbuff))[0]);
 					return id;
 				}
@@ -538,7 +663,7 @@ int client::write_UDP_FIN( )
 				if(id < 0)
 				{
 					speed = ntohl(speeddatagram->speed);
-					printf("client recv speed =%f \n",((float)speed)/1000);
+					//printf("client recv speed =%f \n",((float)speed)/1000);
 					return 0;
 				}
 			}
