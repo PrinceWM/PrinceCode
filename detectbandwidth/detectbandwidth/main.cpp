@@ -7,50 +7,16 @@ void Settings_Initialize( thread_Settings *main ) {
 	// this memset. Only need to set non-zero values
 	// below.
 	memset( main, 0, sizeof(thread_Settings) );
+	memset( main->mHost, 0, sizeof(main->mHost) );
 	main->mSock = INVALID_SOCKET;
 	main->mUDPRate = kDefault_UDPRate;
-	//main->mReportMode = kReport_Default;
-	// option, defaults
-	//main->flags         = FLAG_MODETIME | FLAG_STDOUT; // Default time and stdout
-	//main->mUDPRate      = 0;           // -b,  ie. TCP mode
-	//main->mHost         = NULL;        // -c,  none, required for client
-	//main->mMode         = kTest_Normal;  // -d,  mMode == kTest_DualTest
-	//main->mFormat       = 'a';           // -f,  adaptive bits
-	// skip help                         // -h,
-	//main->mBufLenSet  = false;         // -l,	
 	main->isudp = 1;
-	main->mHost = (char*)malloc(strlen("112.124.0.75"));	
-	memcpy(main->mHost,"112.124.0.75",strlen("112.124.0.75"));
+	main->once = 0;
 	main->mBufLen       = /*32 * 1024*/512;      // -l,  8 Kbyte
-	//main->mInterval     = 0;           // -i,  ie. no periodic bw reports
-	//main->mPrintMSS   = false;         // -m,  don't print MSS
-	// mAmount is time also              // -n,  N/A
-	//main->mOutputFileName = NULL;      // -o,  filename
 	main->mPort         = 5001;          // -p,  ttcp port
-	// mMode    = kTest_Normal;          // -r,  mMode == kTest_TradeOff
-	//main->mThreadMode   = kMode_Unknown; // -s,  or -c, none
 	main->mAmount       = 500;          // -t,  5 seconds
-	// mUDPRate > 0 means UDP            // -u,  N/A, see kDefault_UDPRate
-	// skip version                      // -v,
-	//main->mTCPWin       = 0;           // -w,  ie. don't set window
-
-	// more esoteric options
-	//main->mLocalhost    = NULL;        // -B,  none
-	//main->mCompat     = false;         // -C,  run in Compatibility mode
-	//main->mDaemon     = false;         // -D,  run as a daemon
-	//main->mFileInput  = false;         // -F,
-	//main->mFileName     = NULL;        // -F,  filename 
-	//main->mStdin      = false;         // -I,  default not stdin
-	//main->mListenPort   = 0;           // -L,  listen port
-	//main->mMSS          = 0;           // -M,  ie. don't set MSS
-	//main->mNodelay    = false;         // -N,  don't set nodelay
-	//main->mThreads      = 0;           // -P,
-	//main->mRemoveService = false;      // -R,
-	//main->mTOS          = 0;           // -S,  ie. don't set type of service
 	main->mTTL          = 1;             // -T,  link-local TTL
-	//main->mDomain     = kMode_IPv4;    // -V,
-	//main->mSuggestWin = false;         // -W,  Suggest the window size.
-
+	main->checkid = 0;
 } // end Settings
 
 
@@ -59,21 +25,24 @@ int ParseArag(int argc, char* argv[], thread_Settings* setting)
 {
 	int ret = 0;
 	int i = 0;
-	int arg_increment = 1;
-	for (i = 1; i < argc; i += arg_increment)
+	
+	for (i = 1; i < argc; i++)
 	{
 		if (strcmp(argv[i], "-c") == 0 )
 		{//client mode
 			int len = strlen(argv[i+1])+1;
-			//printf("len =%d \n",len);
-			setting->mHost = (char*)malloc(len);
+			//printf("len =%d \n",len);			
 			memcpy(setting->mHost ,argv[i+1], len);
-			arg_increment++;
+			i++;
 			ret = 0;			
 		}
 		else if(strcmp(argv[i], "-s") == 0 )
 		{//server mode
 			ret = 1;
+		}
+		else if(strcmp(argv[i], "-o") == 0 )
+		{
+			setting->once = 1;
 		}
 		else if(strcmp(argv[i], "-u") == 0 )
 		{
@@ -83,27 +52,27 @@ int ParseArag(int argc, char* argv[], thread_Settings* setting)
 		{
 			setting->isudp = 1;//-b just use for udp 
 			setting->mUDPRate = atoi(argv[i+1]);
-			arg_increment++;
+			i++;
 		}
 		else if(strcmp(argv[i], "-l") == 0 )
 		{
 			setting->mBufLen = atoi(argv[i+1]);
-			arg_increment++;
+			i++;
 		}
 		else if(strcmp(argv[i], "-t") == 0 )
 		{
 			setting->mAmount = atoi(argv[i+1]);
-			arg_increment++;
+			i++;
 		}
 		else if(strcmp(argv[i], "-p") == 0 )
 		{
 			setting->mPort = atoi(argv[i+1]);
-			arg_increment++;
+			i++;
 		}
 		else if(strcmp(argv[i], "-w") == 0 )
 		{
 			setting->mTCPWin = atoi(argv[i+1]);
-			arg_increment++;
+			i++;
 		}		
 	}
 	return ret;
@@ -128,6 +97,13 @@ int main(int argc, char **argv)
 	ret = ParseArag(argc,argv,&setting);
 	if(ret == 0)
 	{//client
+		
+		if(strlen(setting.mHost) == 0)
+		{
+			//memcpy(setting.mHost,"112.124.0.75",strlen("112.124.0.75"));
+			memcpy(setting.mHost,"113.140.73.3",strlen("113.140.73.3"));
+		}
+		
 		printf("set client mode\n");
 REDETECT:
 		client* clientptr = new client(&setting);
@@ -148,14 +124,23 @@ REDETECT:
 		}
 		delete clientptr;
 
-		if(setting.isudp&&currspeed>lastspeed)
+		if(setting.once == 0 && setting.isudp && currspeed>lastspeed)
 		{
 			lastspeed = currspeed;
 			setting.mUDPRate = setting.mUDPRate*2; 
+			setting.checkid++;
 			Sleep(1000*3);
 			goto REDETECT;
 		}
-		printf("detect speed is %d kbit /sec",lastspeed);
+
+		if(lastspeed>=currspeed)
+		{
+			printf("detect speed is %d KBYTE /sec",lastspeed/8);
+		}
+		else
+		{
+			printf("detect speed is %d KBYTE /sec",currspeed/8);
+		}
 		system("pause");
 	}
 	else if(ret == 1)

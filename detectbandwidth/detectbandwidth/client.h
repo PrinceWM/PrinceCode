@@ -11,7 +11,7 @@ public:
 	void initiateserver(void);
 	int setsock_windowsize( int inSock, int inTCPWin, int inSend ) ;
 	void storespeed(int speed);
-	int checkconnectack();
+	int checkconnectack(int* checkid);
 
 private:
 	int clientsock;
@@ -26,4 +26,5 @@ private:
 	long long udprate;
 	long long mAmount;
 	int speed ;	
+	int clientcheckid;
 };

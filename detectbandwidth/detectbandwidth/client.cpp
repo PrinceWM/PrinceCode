@@ -2,10 +2,8 @@
 
 client::client( thread_Settings *inSettings ) 
 {
-	// initialize buffer
-	//printf("float =%d",sizeof(float));
 	int rc = 0;
-	if(inSettings->mHost == NULL || inSettings->mPort == 0)
+	if(strlen(inSettings->mHost) == 0 || inSettings->mPort == 0)
 	{
 		printf("client para error\n");
 		return;
@@ -28,7 +26,7 @@ client::client( thread_Settings *inSettings )
 		if(host == NULL)
 		{
 			printf("Error\nUnknown host: %s\n", inSettings->mHost);
-			exit(1);
+			return;
 		}
 		memcpy(&sockadd.sin_addr, host->h_addr_list[0],host->h_length);
 		//printf("OK\n");
@@ -51,7 +49,7 @@ client::client( thread_Settings *inSettings )
 #endif
 
 
-	printf("add %s : %d\n",inSettings->mHost,inSettings->mPort);
+	printf("add %s : %d rate:%d\n",inSettings->mHost,inSettings->mPort,inSettings->mUDPRate);
 	udprate = inSettings->mUDPRate;	
 	sockaddlen = sizeof(sockadd);
 	clientbufflen = inSettings->mBufLen;
@@ -61,6 +59,7 @@ client::client( thread_Settings *inSettings )
 	isudp = inSettings->isudp;
 	clientsock = INVALID_SOCKET;
 	speed = 0;
+	clientcheckid = inSettings->checkid;
 	memset( clientbuff,23,clientbufflen);
 
 } // end Client
@@ -159,11 +158,12 @@ int client::run( void )
 	int packcount = 0;
 	int lastspeed = 0;
 	int timoutcount = 0;
+	int checkid = 0;
 	//set transfer end time
 	mEndTime.setnow();
 	mEndTime.add( mAmount / 100.0 ); 
 
-	ret = checkconnectack();
+	ret = checkconnectack(&checkid);
 	if(ret < 0)
 	{
 		printf("check ack error\n");
@@ -197,7 +197,8 @@ int client::run( void )
 			// store datagram ID into buffer 			
 			clientdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
 			clientdgmbuff->send_usec = htonl( packetTime.tv_usec );
-			clientdgmbuff->udpid = htonl( udptransferid ); 
+			clientdgmbuff->udpid = htonl( udptransferid );
+			clientdgmbuff->checkid = htonl( checkid );
 			// delay between writes 
 			// make an adjustment for how long the last loop iteration took 
 			// TODO this doesn't work well in certain cases, like 2 parallel streams 
@@ -209,58 +210,6 @@ int client::run( void )
 				delay += adjust; 
 			}
 		}
-
-#if 0
-		FD_ZERO(&fd_read);
-		FD_SET(clientsock, &fd_read);
-
-		ret = select(clientsock + 1, (fd_set*)&fd_read,0, (fd_set*)0, &tv);
-
-		if(ret > 0)
-		{
-			if(FD_ISSET(clientsock, &fd_read))
-			{
-				//printf("receive speed packet \n");
-				if(isudp)
-				{
-					ret = (int)recvfrom( clientsock, clientbuff, clientbufflen, 0,(struct sockaddr*) &sockadd, (socklen_t *)&sockaddlen );		
-				}
-				else
-				{				
-					ret = read( clientsock, clientbuff, clientbufflen ); 
-				}
-				if( ret < 0)
-				{
-#ifdef WIN32_BANDTEST
-					printf("read error %d\n",WSAGetLastError());
-#else
-					printf("read error %d\n",errno);
-#endif
-					return -1;
-				}		
-				if(ntohl(clientdgmbuff->id) == -2)
-				{
-					speed = ntohl(clientdgmbuff->speed);
-					if(speed > 0)
-					{	
-						storespeed(speed);
-						printf("client speed =%d kbit/sec packcount=%d\n",speed,packcount);
-						return speed;
-					}	
-				}
-				else
-				{
-					printf("packet info error\n");
-				}
-
-			}
-		}
-
-
-#endif
-
-
-
 
 		// perform write 
 		//printf("before %d delay=%d \n",packetTime.tv_sec,packetTime.tv_usec,delay);
@@ -311,8 +260,9 @@ int client::run( void )
 	printf("send finish packcount =%d wait recv \n",packcount);
 #define MAXTIMOUT (100)
 	tv.tv_sec = 0;
-	tv.tv_usec = 100*1000;//100 ms
+	tv.tv_usec = 200*1000;//200 ms
 	printf("tv.tv_usec = %d\n",tv.tv_usec);
+	//send packet finish,then wait recv speed
 	while(1)
 	{
 		FD_ZERO(&fd_read);
@@ -363,41 +313,25 @@ int client::run( void )
 						storespeed(speed);
 						//currLen = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
 						printf("client speed =%d kbit/sec packcount=%d\n",speed,packcount);
+						int itmp = 0;
+						int recvseccount = ntohl(clientdgmbuff->seccount);
+						printf("recvseccount=%d \n",recvseccount);
+						for(itmp=0;itmp<recvseccount;itmp++)
+						{
+							printf( "%d ",ntohl(clientdgmbuff->recvnumpersec[itmp]));
+						}
+						printf("\n");
 						return speed;
 					}	
 				}
 				else
 				{
 					printf("packet info error\n");
+					return -1;
 				}
 			}
 		}
 	}
-
-#if 0
-	// stop timing
-	gettimeofday( &packetTime, NULL );
-	printf("send final data\n");
-	//if ( isudp ) 
-	{
-		// send a final terminating datagram 
-		// Don't count in the mTotalLen. The server counts this one, 
-		// but didn't count our first datagram, so we're even now. 
-		// The negative datagram ID signifies termination to the server. 
-
-		// store datagram ID into buffer 
-		clientdgmbuff->id      = htonl( -packetID  ); 
-		clientdgmbuff->send_sec  = htonl( packetTime.tv_sec ); 
-		clientdgmbuff->send_sec = htonl( packetTime.tv_usec ); 
-		clientdgmbuff->udpid = htonl( udptransferid ); 
-		ret = write_UDP_FIN( ); 
-		if(ret == 0)
-		{
-			storespeed(speed);
-		}
-	}
-	return speed;
-#endif
 } // end Run
 
 void client::initiateserver() 
@@ -459,8 +393,8 @@ void client::storespeed(int speed)
 	return;
 #endif
 }
-
-int client::checkconnectack()
+#define  MAX_CHECK_TIME 3
+int client::checkconnectack(int* checkid)
 {
 	//char request[] = "request";
 	fd_set readSet; 
@@ -468,9 +402,11 @@ int client::checkconnectack()
 	struct timeval timeout; 
 	int rc = 0;
 	int count = 0;
+	int checktime = 0;
 	iperf_sockaddr serveraddtmp;
+	
 	int serveraddtmplen = sizeof( iperf_sockaddr );
-
+RECHECK:
 	if (clientsock < 0)
 	{
 		return -1;
@@ -478,6 +414,8 @@ int client::checkconnectack()
 	if(isudp)
 	{	
 		memcpy(clientbuff,"request",strlen("request")+1);
+		int *tmp = (int *)(&(clientbuff[strlen("request")+1]));
+		*tmp = htonl( clientcheckid );
 		//write( clientsock, clientbuff, clientbufflen );
 		rc = sendto( clientsock, clientbuff,clientbufflen, 0,(struct sockaddr*) &sockadd, sockaddlen);
 		if(rc < 0)
@@ -502,7 +440,7 @@ int client::checkconnectack()
 		FD_ZERO( &readSet ); 
 		FD_SET( clientsock, &readSet ); 
 		timeout.tv_sec  = 0; 
-		timeout.tv_usec = 250000; // quarter second, 250 ms 
+		timeout.tv_usec = (400*1000); // quarter second, 400 ms 
 
 		rc = select( clientsock+1, &readSet, NULL, NULL, &timeout ); 
 		if( rc == SOCKET_ERROR)
@@ -548,6 +486,8 @@ int client::checkconnectack()
 				{//do udp ack
 					//printf("get udp ack data \n");
 					id = ntohl(((int*)(clientbuff))[0]);
+					*checkid = ntohl(((int*)(clientbuff))[1]);
+					printf("recv checkid %d\n",*checkid);
 					return id;
 				}
 				else
@@ -567,7 +507,16 @@ int client::checkconnectack()
 				continue;
 			}
 		} 
-	} 
+	}
+	if(count>=10 && checktime<MAX_CHECK_TIME)
+	{
+		printf("**********************\n");
+		printf("check ack retry %d \n",checktime);
+		printf("********************** \n");
+		checktime++;
+		count = 0;
+		goto RECHECK;
+	}
 	return -1;
 }
 

@@ -34,9 +34,9 @@
 #include "timestamp.h"
 
 
-const long kDefault_UDPRate = 256*1024;//1024 * 1024; // -u  if set, 1 Mbit/sec
+const long kDefault_UDPRate = 1024 * 1024; // -u  if set, 1 Mbit/sec
 
-
+#define MAX_NUM 15
 typedef struct datagram
 {
 	signed   int id      ;
@@ -44,14 +44,17 @@ typedef struct datagram
 	unsigned int send_usec ;
 	int speed ;
 	int udpid;
+	int recvnumpersec[MAX_NUM];
+	int seccount;
+	int checkid;
 }datagram;
 
 
 typedef struct sockaddr_in iperf_sockaddr;
 typedef struct thread_Settings {
 	// Pointers
-	char*  mHost;                   // -c
-	char*  mLocalhost;              // -B
+	char  mHost[100];                   // -c
+	//char*  mLocalhost;              // -B
 	int mThreads;                   // -P
 	int mTOS;                       // -S
 	int mSock;
@@ -60,6 +63,7 @@ typedef struct thread_Settings {
 	int mTCPWin;                    // -w
 	int flags; 
 	bool isudp;
+	bool once;
 	// enums (which should be special int's)
 	//ThreadMode mThreadMode;         // -s or -c
 	//ReportMode mReportMode;
@@ -82,7 +86,8 @@ typedef struct thread_Settings {
 	iperf_sockaddr local;
 	int size_local;
 	//nthread_t mTID;
-	char* mCongestion;
+	//char* mCongestion;
+	int checkid;//check transfer time
 } thread_Settings;
 
 
