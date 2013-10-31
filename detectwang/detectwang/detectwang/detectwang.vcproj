@@ -59,6 +59,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib"
+				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -164,7 +165,15 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath="..\..\ThreadpoolLib-master\CMySession.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\eventlisten.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\ThreadpoolLib-master\gettimeofday.cpp"
 				>
 			</File>
 			<File
@@ -196,6 +205,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\ThreadpoolLib-master\sourcecontrol.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\ThreadpoolLib-master\Task.cpp"
 				>
 			</File>
@@ -210,7 +223,15 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath="..\..\ThreadpoolLib-master\CMySession.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\eventlisten.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\ThreadpoolLib-master\gettimeofday.h"
 				>
 			</File>
 			<File
@@ -238,11 +259,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\ThreadpoolLib-master\sourcecontrol.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\ThreadpoolLib-master\Task.h"
 				>
 			</File>
 			<File
 				RelativePath="..\..\ThreadpoolLib-master\TestTask.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\ThreadpoolLib-master\timestamp.h"
 				>
 			</File>
 		</Filter>

@@ -13,6 +13,7 @@ public:
 	int getSize();
 	bool isEmpty();
 	bool clear();
+	CMyThread* FindThread( int port );
 
 private:
 	std::list<CMyThread*>m_list;

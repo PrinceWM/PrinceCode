@@ -21,6 +21,22 @@ bool CMyList::addThread( CMyThread*t )
 	return true;
 }
 
+CMyThread* CMyList::FindThread( int port )
+{
+	m_mutex.Lock();
+	std::list<CMyThread*>::iterator iter=m_list.begin();
+	for(;iter!=m_list.end();iter++)
+	{
+		if((*iter)->dataport == port)
+		{			
+			m_mutex.Unlock();
+			return (*iter);
+		}
+	}
+	m_mutex.Unlock();
+	return NULL;
+}
+
 bool CMyList::removeThread( CMyThread*t )
 {
 // 	std::list<CThread*>::iterator iter=m_list.begin();

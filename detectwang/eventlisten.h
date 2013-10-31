@@ -7,17 +7,14 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-
-#include <winsock2.h>  //windows
-#include <windows.h>
-#include <ws2tcpip.h>
+#include "ThreadpoolLib-master/MyThreadPool.h"
 #define  BUFFLEN  512
 
 
 class eventlisten
 {
 public:
-	eventlisten(int port);
+	eventlisten(CMyThreadPool* threadpool,int port);
 	~eventlisten();
 	int dealevent();
 	int creatlistensock();
@@ -27,4 +24,5 @@ private:
 	char recvbuff[BUFFLEN];
 	int recvbufflen;
 	bool exitflag;
+	CMyThreadPool* mthreadpool;
 };

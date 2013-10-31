@@ -160,10 +160,13 @@ int client::run( void )
 	int timoutcount = 0;
 	int checkid = 0;
 	//set transfer end time
-	mEndTime.setnow();
-	mEndTime.add( mAmount / 100.0 ); 
+	 
 
 	ret = checkconnectack(&checkid);
+
+	mEndTime.setnow();
+	mEndTime.add( mAmount / 100.0 );
+
 	if(ret < 0)
 	{
 		printf("check ack error\n");
@@ -273,6 +276,7 @@ int client::run( void )
 		{
 			if(timoutcount++ > MAXTIMOUT)
 			{//did't receive speed
+				printf("timeout return\n");
 				return -1;
 			}
 			// select timed out 
@@ -327,7 +331,7 @@ int client::run( void )
 				else
 				{
 					printf("packet info error\n");
-					return -1;
+					//continue;
 				}
 			}
 		}

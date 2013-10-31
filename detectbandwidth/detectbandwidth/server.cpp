@@ -396,12 +396,18 @@ int server::udpupdatesession( )
 					tmptime += 1e6;//1 sec 				
 					tmprecvnumpersec[tmpseccount] = (int)((sessioninfostore[itemp].length-lastlen)/serverbufflen);
 					lastlen = sessioninfostore[itemp].length;
-					printf("time  pack recv %d\n",tmprecvnumpersec[tmpseccount]/*(sessioninfostore[itemp].length-lastlen)/serverbufflen*/);
+					printf("time %d tmptime %d pack recv %d\n",time,tmptime,tmprecvnumpersec[tmpseccount]/*(sessioninfostore[itemp].length-lastlen)/serverbufflen*/);
 					tmpseccount++;
 				}
 
 				if(time >= ((mAmount/100)+BORDER_TIME)*(1e6))//ns
 				{
+					if(tmpseccount<10)
+					{
+						printf("******************\n");
+						printf("********%d**********\n",tmpseccount);
+						printf("******************\n");
+					}
 					printf("send speed id\n");
 					msfeed = sessioninfostore[itemp].transfertime.delta_usec();
 					printf("end time %d: %d %d \n",itemp,sessioninfostore[itemp].transfertime.getSecs(),sessioninfostore[itemp].transfertime.getUsecs());

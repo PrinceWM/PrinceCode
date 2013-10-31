@@ -1,12 +1,23 @@
 #include "eventlisten.h"
-
-eventlisten::eventlisten(int port)
+#include "ThreadpoolLib-master/TestTask.h"
+#if 0
+#include <winsock2.h>  //windows
+#include <windows.h>
+#include <ws2tcpip.h>
+#endif
+eventlisten::eventlisten(CMyThreadPool* threadpool,int port)
 {
+	if(threadpool == NULL)
+	{
+		printf("threadpool is null \n");
+		return;
+	}
 	mlistensock = -1;
 	memset(recvbuff,0,BUFFLEN);
 	recvbufflen = BUFFLEN;
 	mport = port;
 	exitflag = true;
+	mthreadpool = threadpool;
 }
 
 eventlisten::~eventlisten()
@@ -72,15 +83,18 @@ int eventlisten::dealevent()
 	struct sockaddr_in clientadd;
 	int clientaddlen = sizeof(clientadd);
 	struct timeval tv;
-
-	FD_ZERO(&fdsr);  
-	FD_SET(mlistensock, &fdsr);
-
+	int port = -1;
+	int sessionid = -1;
+	int randid = -1;
+	CMyThread* pThread = NULL;
 	// timeout setting  
 	tv.tv_sec = 0;  
 	tv.tv_usec = 20*1000;//20 ms timeout  
 	while(exitflag)
 	{
+		FD_ZERO(&fdsr);  
+		FD_SET(mlistensock, &fdsr);
+
 		ret = select(mlistensock + 1, &fdsr, NULL, NULL, &tv);
 		if (ret < 0) 
 		{  
@@ -93,26 +107,62 @@ int eventlisten::dealevent()
 		}
 		if (FD_ISSET(mlistensock, &fdsr))
 		{			
-			ret = (int)recvfrom( mlistensock, recvbuff, recvbufflen, 0,(struct sockaddr*) &clientadd, (socklen_t *)&clientaddlen );		
+			ret = (int)recvfrom( mlistensock, recvbuff, recvbufflen, 0,(struct sockaddr*) &clientadd, /*(socklen_t *)*/&clientaddlen );		
 			if(ret < 0)
 			{
 				printf("recvform error %d \n",WSAGetLastError());
 			}
 			if(memcmp(recvbuff,"request",strlen("request")+1)==0)
 			{
-#if 0
-				//get id 
+				ret = mthreadpool->m_ContrSource.getfreesource(&port,&sessionid);
+				if(ret == 0)
+				{//get source creat transfer
+					srand((unsigned)time(NULL));
+					randid = rand();
+					//get matching port thread
+					pThread = mthreadpool->findThread(port);					
+					if(pThread == NULL)
+					{
+						printf("find thread error \n");
+					}
+					//set thread session info
+					pThread->msession.setsession(sessionid,randid);
+					CDataTask *p=new CDataTask(0,port);
+					//add task to get thread
+					mthreadpool->addTask(p,pThread);
+										
+					((int *)(recvbuff))[0] = ntohl( port );
+					((int *)(recvbuff))[1] = ntohl( sessionid );
+					((int *)(recvbuff))[2] = ntohl( randid );						
+					printf("send id \n");
+					ret = sendto( mlistensock, recvbuff,recvbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);								
+				}
+				else if(ret == 1)
 				{
-					//ok
-					//rand a id
-					//send a port
-					//insert this session to thread pool
+					srand((unsigned)time(NULL));
+					randid = rand();
+					//get matching port thread
+					pThread = mthreadpool->findThread(port);					
+					if(pThread == NULL)
+					{
+						printf("find thread error \n");
+					}
+					//set thread session info
+					pThread->msession.setsession(sessionid,randid);
+
+					((int *)(recvbuff))[0] = ntohl( port );
+					((int *)(recvbuff))[1] = ntohl( sessionid );
+					((int *)(recvbuff))[2] = ntohl( randid );						
+					printf("send id thread already work \n");
+					ret = sendto( mlistensock, recvbuff,recvbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);								
+
 				}
 				else
-				{
-					//fail return
+				{//no source send bye
+					memcpy(recvbuff,"bye",strlen("bye")+1);
+					printf("send bye \n");
+					ret = sendto( mlistensock, recvbuff,recvbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
 				}
-#endif
 			}
 		}
 	}
