@@ -3,7 +3,6 @@
 #include "timestamp.h"
 #include "sourcecontrol.h"
 //#include "MyThread.h"
-#define AMOUNT 500
 #define MAX_NUM 15
 class CMyThread;
 typedef struct _SESSIONINFO
@@ -15,7 +14,7 @@ typedef struct _SESSIONINFO
 	int length;//this connection recv byte 
 	bool udpsessionuse;//use for udp transfer
 	struct sockaddr_in clientadd;
-	int clientaddlen /*= sizeof( iperf_sockaddr )*/;
+	int clientaddlen /*= sizeof( struct sockaddr_in )*/;
 	int checkid;
 
 
@@ -30,12 +29,14 @@ typedef struct _SESSIONINFO
 class CMySession
 {
 public:
-	CMySession(void);
+	CMySession(int amount);
 	~CMySession(void);
 	int setsession(int sessionid,int randid);
-	int updatesession( int mAmount,CMyThread* taskThread);	
+	int updatesession( CMyThread* taskThread);	
 	int clearsession(int index );
+	int haveusesession( );
 	SESSIONINFO sessioninfostore[MAXSESSION];
-//private:	
+private:	
 	//CMyMutex m_mutex;
+	int amount;
 };

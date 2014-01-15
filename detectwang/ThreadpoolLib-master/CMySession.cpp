@@ -3,8 +3,9 @@
 
 
 
-CMySession::CMySession()
+CMySession::CMySession(int paraamount)
 {
+	amount = paraamount;
 	int index = 0;
 	for(index = 0;index<MAXSESSION;index++)
 	{
@@ -15,7 +16,7 @@ CMySession::CMySession()
 		sessioninfostore[index].applytime.set(0,0);
 		memset(&sessioninfostore[index].clientadd,0,sizeof(sessioninfostore[index].clientadd));
 		sessioninfostore[index].clientaddlen = 0;
-		sessioninfostore[index].tmptime = (((AMOUNT/100+1))*(1e6));
+		sessioninfostore[index].tmptime = (((amount/100+1))*(1e6));
 		sessioninfostore[index].lastlen = 0;
 	}
 }
@@ -38,10 +39,25 @@ int CMySession::setsession(int sessionid,int randid)
 	return 0;
 }
 
-#define BORDER_TIME 10
+int CMySession::haveusesession( )
+{
+	int ret = 0;
+	int itemp;
+	for(itemp = 0;itemp<MAXSESSION;itemp++)
+	{
+		if(sessioninfostore[itemp].udpsessionuse ==  true)
+		{
+			return 0;
+		}
+	}
+	return -1;
+}
 
 
-int CMySession::updatesession( int mAmount,CMyThread* taskThread)
+#define BORDER_TIME 3
+
+
+int CMySession::updatesession( CMyThread* taskThread)
 {
 	int itemp;
 	long time = 0;
@@ -70,13 +86,13 @@ int CMySession::updatesession( int mAmount,CMyThread* taskThread)
 					sessioninfostore[itemp].tmptime += 1e6;//1 sec 				
 					sessioninfostore[itemp].tmprecvnumpersec[sessioninfostore[itemp].tmpseccount] = (int)((sessioninfostore[itemp].length-sessioninfostore[itemp].lastlen)/taskThread->recvbufflen);
 					sessioninfostore[itemp].lastlen = sessioninfostore[itemp].length;
-					printf("time %d tmptime %d pack recv %d\n",time,sessioninfostore[itemp].tmptime,sessioninfostore[itemp].tmprecvnumpersec[sessioninfostore[itemp].tmpseccount]/*(sessioninfostore[itemp].length-lastlen)/serverbufflen*/);
+					printf("time %d tmptime %f pack recv %d\n",time,sessioninfostore[itemp].tmptime,sessioninfostore[itemp].tmprecvnumpersec[sessioninfostore[itemp].tmpseccount]/*(sessioninfostore[itemp].length-lastlen)/serverbufflen*/);
 					sessioninfostore[itemp].tmpseccount++;
 				}
 
-				if(time >= ((mAmount/100)+BORDER_TIME)*(1e6))//ns
+				if(time >= ((amount/100)+BORDER_TIME)*(1e6))//ns
 				{
-					if(sessioninfostore[itemp].tmpseccount<10)
+					if(sessioninfostore[itemp].tmpseccount<BORDER_TIME)
 					{
 						printf("******************\n");
 						printf("********%d**********\n",sessioninfostore[itemp].tmpseccount);
@@ -86,7 +102,7 @@ int CMySession::updatesession( int mAmount,CMyThread* taskThread)
 					msfeed = sessioninfostore[itemp].transfertime.delta_usec();
 					printf("end time %d: %d %d \n",itemp,sessioninfostore[itemp].transfertime.getSecs(),sessioninfostore[itemp].transfertime.getUsecs());
 					//speed = (((double)(sessioninfostore[itemp].length*8)/(1024*1024))/((double)msfeed/(1000*1000)));//Mbit/sec
-					speed = ((double)(sessioninfostore[itemp].length*8)/(1024*1024))/(mAmount/100);
+					speed = ((double)(sessioninfostore[itemp].length*8)/(1024*1024))/(amount/100);
 					printf("speed = %f sessioninfostore[i].length=%d msfeed=%ld recvpack=%d\n",speed,sessioninfostore[itemp].length,msfeed,sessioninfostore[itemp].length/taskThread->recvbufflen);
 
 					serverdgmbuff->id      = htonl( /*datagramID*/-2 ); 
@@ -107,8 +123,9 @@ int CMySession::updatesession( int mAmount,CMyThread* taskThread)
 					if(ret > 0)
 					{
 						clearsession(itemp);	
-						sessioninfostore[itemp].tmptime = (((mAmount/100+1))*(1e6));
+						sessioninfostore[itemp].tmptime = (((amount/100+1))*(1e6));
 						sessioninfostore[itemp].lastlen = 0;
+						printf("setfreesource port=%d\n",taskThread->dataport);
 						taskThread->getbelongthreadpool()->m_ContrSource.setfreesource(taskThread->dataport,itemp);
 						//free source need lock
 						return 1;
@@ -123,10 +140,10 @@ int CMySession::updatesession( int mAmount,CMyThread* taskThread)
 			else if(sessioninfostore[itemp].length == 0)
 			{//check not start transfer session time ,if time out close this session	
 				time = sessioninfostore[itemp].currenttime.subUsec(sessioninfostore[itemp].applytime);				
-				if(time >= ((mAmount/100))*(1e6))
+				if(time >= ((amount/100))*(1e6))
 				{//this session not work in amount time len so clear it
 					printf("clear not use session\n");
-					clearsession(itemp);
+					clearsession(itemp);					
 					taskThread->getbelongthreadpool()->m_ContrSource.setfreesource(taskThread->dataport,itemp);
 					//free source need lock
 				}				

@@ -365,7 +365,7 @@ int server::udpclearsession(int index )
 	return 0;
 }
 
-#define BORDER_TIME 10
+#define BORDER_TIME 3
 
 int tmprecvnumpersec[MAX_NUM]={0};
 int tmpseccount = 0;
@@ -402,7 +402,7 @@ int server::udpupdatesession( )
 
 				if(time >= ((mAmount/100)+BORDER_TIME)*(1e6))//ns
 				{
-					if(tmpseccount<10)
+					if(tmpseccount<BORDER_TIME)
 					{
 						printf("******************\n");
 						printf("********%d**********\n",tmpseccount);

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<logLevel level="1" isSaved="0"/>
+	<tsTransNode nodeType="1" ipAddress="192.168.3.59" publicationPort="2636" supplyPort="2631" zoneNumber="1" Capability="8" timeZone="0" maxSupplyBuffer="1" carrier="µ葅" province="±±¾©" city="±±¾©"/>
+	<tsTracker>
+		<tracker ipAddress="112.124.0.75" trackerPort="13709"/>
+	</tsTracker>
+	<tsConsumerTask>
+		<!--<channel channelID="1" channelName="1" channelPath="/root/tools/LiveChannelC2A/p2p/LiveChannelFile/1/" consumerPort="46359" linkNumber="1"/>-->
+		<!--<channel channelID="2" channelName="BEIJINGWEISHI" channelPath="C:\LiveCDN\LiveChannelFile\BEIJINGWEISHI\" consumerPort="26358" linkNumber="1"/>-->
+	</tsConsumerTask>
+	<tsFTDS>
+		<ftds channelID="1" ipAddressFTDS="127.0.0.1" portFTDS="16056"/>
+		<ftds channelID="2" ipAddressFTDS="127.0.0.1" portFTDS="16057"/>
+	</tsFTDS>		
+</config>

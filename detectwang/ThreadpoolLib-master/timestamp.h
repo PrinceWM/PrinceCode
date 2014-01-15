@@ -1,7 +1,7 @@
 
 #ifndef TIMESTAMP_H
 #define TIMESTAMP_H
-
+#include <Windows.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -11,7 +11,7 @@
 #include <time.h>
 #include <math.h>
 #include "gettimeofday.h"//windows
-
+//#include <Time.h>
 /* ------------------------------------------------------------------- */
 class Timestamp {
 public:

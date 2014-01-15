@@ -20,7 +20,7 @@ public:
 class CMyThreadPool:public CBaseThreadPool
 {
 public:
-	CMyThreadPool(int num);
+	CMyThreadPool(int num,int portstart,int paraamount);
 	~CMyThreadPool(void);
 
 public:
@@ -35,6 +35,7 @@ public:
 	CMyThread* findThread(int port);
 	
 	CSourcControl m_ContrSource;
+	//int amount;
 private:
 	int m_nThreadNum;
 	bool m_bIsExit;

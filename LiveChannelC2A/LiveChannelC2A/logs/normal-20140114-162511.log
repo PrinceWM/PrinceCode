@@ -1,0 +1,54 @@
+[2013-11-19 10:03:33] ERROR  globalConfig.publicationPort = 2636
+[2013-11-19 10:03:33] ERROR  FTDS (1, 127.0.0.1, 16056) has no channel
+[2013-11-19 10:03:33] ERROR  FTDS (2, 127.0.0.1, 16057) has no channel
+[2013-11-19 10:03:33] INFOR  2111
+[2013-11-19 10:03:33] INFOR  1111
+[2013-11-19 10:03:34] ERROR  getLocalIp  Current Socket IP:192.168.3.121
+[2013-11-19 10:03:34] INFOR  1112
+[2013-11-19 10:03:34] INFOR  http_request sock:608
+
+[2013-11-19 10:03:34] INFOR  gethostbyname succes
+
+[2013-11-19 10:03:34] INFOR  addr:180.149.136.250
+
+[2013-11-19 10:03:34] INFOR  send finish,len:226
+
+[2013-11-19 10:03:34] INFOR  httpClient finished 
+
+[2013-11-19 10:03:34] INFOR  Thread exit success!
+[2013-11-19 10:03:34] INFOR  destoryQueryCtx ctx->sock :-1
+
+[2013-11-19 10:03:34] INFOR  carrier: 电信, provice: 陕西, city: 西安
+[2013-11-19 10:03:34] INFOR  1113
+[2013-11-19 10:03:34] INFOR  1114
+[2013-11-19 10:03:34] INFOR  1115
+[2013-11-19 10:03:34] INFOR  UID 154324092 bind 192.168.3.121:2636 success
+[2013-11-19 10:03:34] INFOR  1116
+[2013-11-19 10:03:34] INFOR  1117
+[2013-11-19 10:03:34] INFOR  get speed event 0
+[2013-11-19 10:03:34] INFOR  get speed event 1
+[2013-11-19 10:03:34] INFOR  get speed event 2 type=0x7f 
+[2013-11-19 10:03:34] FATAL  detect thread
+[2013-11-19 10:03:34] FATAL  detect thread return1
+[2013-11-19 10:03:40] FATAL  client run currspeed = 1002
+
+[2013-11-19 10:03:46] FATAL  client run currspeed = 1983
+
+[2013-11-19 10:03:52] FATAL  client run currspeed = 3919
+
+[2013-11-19 10:03:58] FATAL  client run currspeed = 8002
+
+[2013-11-19 10:04:04] FATAL  client run currspeed = 15902
+
+[2013-11-19 10:04:10] FATAL  client run currspeed = 31466
+
+[2013-11-19 10:04:16] FATAL  client run currspeed = 50899
+
+[2013-11-19 10:04:22] FATAL  client run currspeed = 49321
+
+[2013-11-19 10:04:22] FATAL  return lastspeed=50899
+[2013-11-19 10:04:22] FATAL  sendto len=20 speed= 50899 ip=192.168.3.121:2636
+[2013-11-19 10:04:22] INFOR  get speed event 0
+[2013-11-19 10:04:22] INFOR  get speed event 1
+[2013-11-19 10:04:22] INFOR  get speed event 2 type=0x7e 
+[2013-11-19 10:04:22] INFOR  get speed event fainalspeed = 50899

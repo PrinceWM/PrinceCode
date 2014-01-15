@@ -36,6 +36,7 @@ int eventlisten::creatlistensock()
 	int theTCPWin = (2*1024*1024);
 	int len = sizeof(theTCPWin);
 	struct sockaddr_in localadd; 
+#if 0
 	WSADATA wsaData;
 	int rc = WSAStartup(MAKEWORD(1,1), &wsaData);
 	//int rc = WSAStartup( 0x202, &wsaData );	
@@ -43,6 +44,7 @@ int eventlisten::creatlistensock()
 	{
 		return -1;
 	}
+#endif
 	mlistensock = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
 	if(mlistensock == INVALID_SOCKET)
@@ -88,10 +90,11 @@ int eventlisten::dealevent()
 	int randid = -1;
 	CMyThread* pThread = NULL;
 	// timeout setting  
-	tv.tv_sec = 0;  
-	tv.tv_usec = 20*1000;//20 ms timeout  
 	while(exitflag)
 	{
+		tv.tv_sec = 0;  
+		tv.tv_usec = 20*1000;//20 ms timeout  
+
 		FD_ZERO(&fdsr);  
 		FD_SET(mlistensock, &fdsr);
 
@@ -153,7 +156,7 @@ int eventlisten::dealevent()
 					((int *)(recvbuff))[0] = ntohl( port );
 					((int *)(recvbuff))[1] = ntohl( sessionid );
 					((int *)(recvbuff))[2] = ntohl( randid );						
-					printf("send id thread already work \n");
+					printf("send id thread already work port=%d\n",pThread->dataport);
 					ret = sendto( mlistensock, recvbuff,recvbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);								
 
 				}
@@ -163,6 +166,10 @@ int eventlisten::dealevent()
 					printf("send bye \n");
 					ret = sendto( mlistensock, recvbuff,recvbufflen, 0,(struct sockaddr*) &clientadd, clientaddlen);
 				}
+			}
+			else
+			{
+				printf("not a request packet\n");
 			}
 		}
 	}

@@ -71,14 +71,33 @@ bool CMyList::isEmpty()
 	m_mutex.Unlock();
 	return ret;
 }
-
+//this function is very dangerous ,this m_mutex,will be Occupy very long time maybe
 bool CMyList::clear()
 {
 	m_mutex.Lock();
 	std::list<CMyThread*>::iterator iter=m_list.begin();
 	for(;iter!=m_list.end();iter++)
 	{
-		delete (*iter);
+		(*iter)->m_bIsThreadExit = 1;
+		(*iter)->resumeThread();
+	}
+
+	iter=m_list.begin();
+	for(;iter!=m_list.end();iter++)
+	{
+		while(1)
+		{
+			if((*iter)->m_bIsThreadExit == 2)
+			{
+				printf("delete port %d\n",(*iter)->dataport);
+				delete (*iter);
+				break;
+			}
+			else
+			{
+				Sleep(1);
+			}
+		}		
 	}
 	m_list.clear();
 	m_mutex.Unlock();

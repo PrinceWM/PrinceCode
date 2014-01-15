@@ -83,7 +83,8 @@ void CDataTask::taskProc(CMyThread* ptr)
 	struct sockaddr_in clientadd;
 	int clientaddlen = sizeof(clientadd);
 	struct timeval tv;
-	//int amount = 5;
+	//int amount = 0;
+	printf("taskProc %d\n",ptr->dataport);
 	if(ptr == NULL)
 	{
 		printf("ptr error \n");
@@ -91,15 +92,22 @@ void CDataTask::taskProc(CMyThread* ptr)
 	}
 
 	// timeout setting  
-	tv.tv_sec = 0;  
-	tv.tv_usec = 20*1000;//20 ms timeout  
-	while(ptr->m_bIsExit)
+	while(ptr->m_bIsThreadExit == 0)
 	{
-		ret = ptr->msession.updatesession(AMOUNT,ptr);
+		//amount = ptr->getpoolamount();
+		ret = ptr->msession.updatesession(ptr);
 		if(ret < 0)
 		{
 			printf("udpupdatesession eror \n");
 		}
+		ret = ptr->msession.haveusesession();
+		if(ret<0)
+		{
+			break;
+		}
+
+		tv.tv_sec = 0;  
+		tv.tv_usec = 20*1000;//20 ms timeout  
 
 		FD_ZERO(&fdsr);  
 		FD_SET(ptr->datasock, &fdsr);
@@ -127,12 +135,12 @@ void CDataTask::taskProc(CMyThread* ptr)
 				int randid = ntohl(((datagram*) ptr->recvbuff)->randid ); 
 				if(ptr->msession.sessioninfostore[transferid].udpsessionuse == false)
 				{//check this session allow
-					return ;
+					continue ;
 				}
 				if(ptr->msession.sessioninfostore[transferid].randid != randid)
 				{//check this session allow
 					printf("check id check error\n");
-					return;
+					continue ;
 				}
 
 				//printf("datagramID = %d \n",datagramID);
@@ -147,6 +155,10 @@ void CDataTask::taskProc(CMyThread* ptr)
 					}
 					ptr->msession.sessioninfostore[transferid].length += ret;
 					//printf("time =%d abidance =%d\n",time,((mAmount/100)+4)*(1e6));
+				}
+				else
+				{
+					printf("datagramID =%d\n",datagramID);
 				}
 			}
 		}

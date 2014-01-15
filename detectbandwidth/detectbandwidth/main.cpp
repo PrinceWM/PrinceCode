@@ -14,7 +14,7 @@ void Settings_Initialize( thread_Settings *main ) {
 	main->once = 0;
 	main->mBufLen       = /*32 * 1024*/512;      // -l,  8 Kbyte
 	main->mPort         = 5001;          // -p,  ttcp port
-	main->mAmount       = 500;          // -t,  5 seconds
+	main->mAmount       = 300;          // -t,  5 seconds
 	main->mTTL          = 1;             // -T,  link-local TTL
 	main->checkid = 0;
 } // end Settings
@@ -101,7 +101,8 @@ int main(int argc, char **argv)
 		if(strlen(setting.mHost) == 0)
 		{
 			//memcpy(setting.mHost,"112.124.0.75",strlen("112.124.0.75"));
-			memcpy(setting.mHost,"113.140.73.3",strlen("113.140.73.3"));
+			//memcpy(setting.mHost,"113.140.73.3",strlen("113.140.73.3"));
+			memcpy(setting.mHost,"125.76.233.68",strlen("125.76.233.68"));
 		}
 		
 		printf("set client mode\n");

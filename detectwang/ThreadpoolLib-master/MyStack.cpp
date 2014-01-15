@@ -53,7 +53,7 @@ bool CMyStack::clear()
 		pThread=m_stack.top();
 		m_stack.pop();
 		pThread->resumeThread();
-		pThread->m_bIsExit=true;
+		pThread->m_bIsThreadExit=1;
 		delete pThread;
 	}
 	m_mutext.Unlock();

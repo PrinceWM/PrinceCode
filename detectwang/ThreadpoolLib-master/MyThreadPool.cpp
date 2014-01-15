@@ -4,17 +4,22 @@
 #include<cassert>
 #include<iostream>
 #include "MyQueue.h"
-CMyThreadPool::CMyThreadPool(int num)
-	:m_ContrSource(50001)
+CMyThreadPool::CMyThreadPool(int num,int portstart,int paraamount)
+	:m_ContrSource(portstart)
 {
 	m_bIsExit=false;
-	
+	m_nThreadNum = num;
+	int ret = 0;
 	for(int i=0;i<num;i++)
 	{
-		CMyThread*p=new CMyThread(this,50001+i);
+		CMyThread*p=new CMyThread(this,portstart+i,paraamount);
 		m_ThreadList.addThread(p);
 		//m_IdleThreadStack.push(p);
-		p->startThread();
+		ret = p->startThread();
+		if(ret == false)
+		{
+			printf("startThread error\n");
+		}
 	}
 }
 
@@ -139,12 +144,9 @@ CTask* CMyThreadPool::GetNewTask()
 }
 bool CMyThreadPool::destroyThreadPool()
 {
-	
+	//int i;
 	m_bIsExit=true;
-#if 0
-	m_TaskQueue.clear();
-	m_IdleThreadStack.clear();
-	m_ActiveThreadList.clear();
-#endif
+	//release all thread
+	m_ThreadList.clear();
 	return true;
 }

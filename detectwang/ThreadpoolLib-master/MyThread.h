@@ -26,7 +26,7 @@ class CBaseThreadPool;
 class CMyThread
 {
 public:
-	CMyThread(CMyThreadPool*threadPool,int port);
+	CMyThread(CMyThreadPool*threadPool,int port,int amount);
 	~CMyThread(void);
 public:
 	bool startThread();
@@ -35,25 +35,31 @@ public:
 	bool assignTask(CTask*pTask);
 	bool startTask();
 	int creatdatasock();
+	//int getpoolamount();
 	CMyThreadPool* getbelongthreadpool();
 	//int udpupdatesession( int mAmount);
 	//int udpclearsession(int index );
 	static DWORD WINAPI threadProc(LPVOID pParam);
 	DWORD m_threadID;
 	HANDLE m_hThread;
-	bool m_bIsExit;
+	int m_bIsThreadExit;
 
 	int datasock;
 	int dataport;	
 	char recvbuff[BUFFLEN];
 	int recvbufflen;
 
+	/*这个变量是多线程使用的，但是未加锁，因为m_ContrSource这个资源是
+	加锁的，从而保护了msession的数据并行性，所以在set session前必须先 
+	m_ContrSource getsource	，clear session 先操作，然后再m_ContrSource free操作*/
+
 	CMySession msession;
+	
 	//SESSIONINFO sessioninfostore[MAXSESSION];
 	//long tmptime ;
 	//int lastlen ;
 private:
-	
+
 	HANDLE m_hEvent;
 	CTask*m_pTask;
 	CMyThreadPool*m_pThreadPool;	

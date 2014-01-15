@@ -1,0 +1,39 @@
+[2014-01-14 16:25:11] ERROR  globalConfig.publicationPort = 2636
+[2014-01-14 16:25:11] ERROR  FTDS (1, 127.0.0.1, 16056) has no channel
+[2014-01-14 16:25:11] ERROR  FTDS (2, 127.0.0.1, 16057) has no channel
+[2014-01-14 16:25:11] INFOR  2111
+[2014-01-14 16:25:11] INFOR  1111
+[2014-01-14 16:25:11] ERROR  getLocalIp  Current Socket IP:192.168.3.121
+[2014-01-14 16:25:11] INFOR  1112
+[2014-01-14 16:25:11] INFOR  http_request sock:608
+
+[2014-01-14 16:25:12] INFOR  gethostbyname succes
+
+[2014-01-14 16:25:12] INFOR  addr:180.149.136.250
+
+[2014-01-14 16:25:12] INFOR  send finish,len:226
+
+[2014-01-14 16:25:12] INFOR  httpClient finished 
+
+[2014-01-14 16:25:12] INFOR  Thread exit success!
+[2014-01-14 16:25:12] INFOR  destoryQueryCtx ctx->sock :-1
+
+[2014-01-14 16:25:12] INFOR  carrier: 电信, provice: 陕西, city: 西安
+[2014-01-14 16:25:12] INFOR  1113
+[2014-01-14 16:25:12] INFOR  1114
+[2014-01-14 16:25:12] INFOR  1115
+[2014-01-14 16:25:12] INFOR  UID 16716810 bind 192.168.3.121:2636 success
+[2014-01-14 16:25:12] INFOR  1116
+[2014-01-14 16:25:12] INFOR  1117
+[2014-01-14 16:25:12] INFOR  get speed event 0
+[2014-01-14 16:25:12] INFOR  get speed event 1
+[2014-01-14 16:25:12] INFOR  get speed event 2 type=0x7f 
+[2014-01-14 16:25:12] FATAL  detect thread
+[2014-01-14 16:25:12] FATAL  detect thread return1
+[2014-01-14 16:25:12] FATAL  check ack error
+[2014-01-14 16:25:12] FATAL  return lastspeed=0
+[2014-01-14 16:25:12] FATAL  sendto len=20 speed= 0 ip=192.168.3.121:2636
+[2014-01-14 16:25:12] INFOR  get speed event 0
+[2014-01-14 16:25:12] INFOR  get speed event 1
+[2014-01-14 16:25:12] INFOR  get speed event 2 type=0x7e 
+[2014-01-14 16:25:12] INFOR  get speed event fainalspeed = 0

@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "p2p", "p2p\p2p.vcproj", "{CAF7F4FE-760C-44E5-BE7E-7E38EEB0897C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CAF7F4FE-760C-44E5-BE7E-7E38EEB0897C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CAF7F4FE-760C-44E5-BE7E-7E38EEB0897C}.Debug|Win32.Build.0 = Debug|Win32
+		{CAF7F4FE-760C-44E5-BE7E-7E38EEB0897C}.Release|Win32.ActiveCfg = Release|Win32
+		{CAF7F4FE-760C-44E5-BE7E-7E38EEB0897C}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

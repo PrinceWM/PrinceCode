@@ -56,17 +56,20 @@ int CSourcControl::getfreesource(int *port,int *sessionid)
 
 int CSourcControl::setfreesource(int port,int sessionid)
 {
-	int ret = 0;
+	//printf("setfreesource port=%d",port);
+	int ret = -1;
+	int i = 0;
+	int j = 0;
+
 	mutext.Lock();
-	if(source[port][sessionid].isuse == true)
+	for(i = 0;i<MAXPORT;i++)
 	{
-		source[port][sessionid].isuse = false;
-		source[port][sessionid].sessionid = 0;
-		source[port][sessionid].port = 0;
-	}
-	else
-	{
-		ret = -1;
+		if(source[i][0].port == port)
+		{
+			source[i][sessionid].isuse = false;
+			ret = 0;
+			break;
+		}
 	}
 	mutext.Unlock();
 	return ret;
